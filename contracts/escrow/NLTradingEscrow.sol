@@ -5,7 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {IAlkahest, INaturalLanguageAgreements, IERC8004, IPriceFeed} from "../interfaces/IAlkahest.sol";
+import {IAlkahest, INaturalLanguageAgreements, IERC8004} from "../interfaces/IAlkahest.sol";
 
 /**
  * @title NLTradingEscrow
@@ -23,6 +23,15 @@ import {IAlkahest, INaturalLanguageAgreements, IERC8004, IPriceFeed} from "../in
 contract NLTradingEscrow is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    enum DemandLifecycleStatus {
+        Draft,
+        ObligationCreated,
+        CollateralLocked,
+        ArbitrationRequested,
+        ResolvedRelease,
+        ResolvedClawback
+    }
+
     // State variables
     address public alkahestAddress;
     address public nlAgreementsAddress;
@@ -38,6 +47,9 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
         uint256 id;
         address requester;
         string nlDescription;
+        bytes32 conditionHash;
+        bytes32 parserMetadataHash;
+        uint64 parsedConditionVersion;
         address collateralToken;
         uint256 collateralAmount;
         string tradeType; // "long" or "short"
@@ -45,7 +57,11 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
         uint256 priceThreshold;
         uint256 sizeUsd;
         uint256 releaseTime;
+        uint256 obligationId;
+        DemandLifecycleStatus lifecycleStatus;
+        uint256 lastProtocolActionAt;
         bool settled;
+        // Kept for backward compatibility with existing scripts/tests.
         uint256 alkahestObligationId;
     }
 
@@ -58,7 +74,7 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
     }
 
     // Mappings
-    mapping(uint256 => NLDemand) public demands;
+    mapping(uint256 => NLDemand) private demands;
     mapping(bytes32 => TradeExecution) public executions;
     mapping(address => uint256[]) public userDemands;
 
@@ -120,18 +136,28 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
         uint256 releaseTime
     ) external onlyAgent nonReentrant returns (uint256) {
         require(collateralAmount > 0, "Amount must be > 0");
+        require(collateralToken != address(0), "Invalid collateral token");
+        require(bytes(nlDescription).length > 0, "NL description required");
         require(releaseTime > block.timestamp, "Release time must be in future");
 
         uint256 demandId = obligationCounter++;
-
-        // Parse NL agreement to validate structure
-        INaturalLanguageAgreements(nlAgreementsAddress).hashCondition(nlDescription);
+        (uint256 obligationId, bytes32 conditionHash) = _createProtocolObligation(
+            demandId,
+            msg.sender,
+            nlDescription,
+            collateralToken,
+            collateralAmount,
+            releaseTime
+        );
 
         // Store demand
         NLDemand storage demand = demands[demandId];
         demand.id = demandId;
         demand.requester = msg.sender;
         demand.nlDescription = nlDescription;
+        demand.conditionHash = conditionHash;
+        demand.parserMetadataHash = keccak256(abi.encodePacked("nla-v1", nlDescription));
+        demand.parsedConditionVersion = 1;
         demand.collateralToken = collateralToken;
         demand.collateralAmount = collateralAmount;
         demand.tradeType = _compareStrings(tradeType, "long") ? "long" : "short";
@@ -139,13 +165,78 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
         demand.priceThreshold = priceThreshold;
         demand.sizeUsd = sizeUsd;
         demand.releaseTime = releaseTime;
+        demand.obligationId = obligationId;
+        demand.lifecycleStatus = DemandLifecycleStatus.ObligationCreated;
+        demand.lastProtocolActionAt = block.timestamp;
         demand.settled = false;
+        demand.alkahestObligationId = obligationId;
 
         userDemands[msg.sender].push(demandId);
 
         emit DemandCreated(demandId, msg.sender, nlDescription);
 
         return demandId;
+    }
+
+    function _createProtocolObligation(
+        uint256 demandId,
+        address requester,
+        string memory nlDescription,
+        address collateralToken,
+        uint256 collateralAmount,
+        uint256 releaseTime
+    )
+        internal
+        returns (uint256 obligationId, bytes32 conditionHash)
+    {
+        conditionHash = INaturalLanguageAgreements(nlAgreementsAddress).hashCondition(nlDescription);
+        require(conditionHash != bytes32(0), "Invalid condition hash");
+
+        obligationId = IAlkahest(alkahestAddress).createObligation(
+            demandId,
+            _buildObligationTerms(requester, collateralToken, collateralAmount, releaseTime),
+            _buildCondition(conditionHash, nlDescription),
+            _buildArbiterConfig()
+        );
+        require(obligationId > 0, "Invalid obligation ID");
+    }
+
+    function _buildObligationTerms(
+        address requester,
+        address collateralToken,
+        uint256 collateralAmount,
+        uint256 releaseTime
+    ) internal view returns (IAlkahest.ObligationTerms memory) {
+        return IAlkahest.ObligationTerms({
+            requester: requester,
+            beneficiary: requester,
+            collateralToken: collateralToken,
+            collateralAmount: collateralAmount,
+            releaseTime: releaseTime,
+            createdAt: block.timestamp
+        });
+    }
+
+    function _buildCondition(
+        bytes32 conditionHash,
+        string memory nlDescription
+    ) internal pure returns (IAlkahest.ConditionReference memory) {
+        return IAlkahest.ConditionReference({
+            conditionHash: conditionHash,
+            conditionURI: "",
+            parserMetadataHash: keccak256(abi.encodePacked("nla-v1", nlDescription)),
+            parserVersion: 1
+        });
+    }
+
+    function _buildArbiterConfig() internal view returns (IAlkahest.ArbiterConfig memory) {
+        return IAlkahest.ArbiterConfig({
+            arbiter: arbiterAddress,
+            resolver: arbiterAddress,
+            reputationWeighted: true,
+            minReputationScore: 100,
+            policyHash: keccak256(abi.encodePacked("ai-evaluated-arbiter-v1"))
+        });
     }
 
     /**
@@ -156,6 +247,12 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
         NLDemand storage demand = demands[demandId];
         require(!demand.settled, "Demand already settled");
         require(demand.collateralAmount > 0, "No collateral to lock");
+        require(demand.conditionHash != bytes32(0), "Condition hash not set");
+        require(demand.obligationId > 0, "No obligation created");
+        require(
+            demand.lifecycleStatus == DemandLifecycleStatus.ObligationCreated,
+            "Demand not ready for lock"
+        );
 
         // Transfer collateral from agent to this contract
         IERC20(demand.collateralToken).safeTransferFrom(agentAddress, address(this), demand.collateralAmount);
@@ -163,11 +260,15 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
         // Approve Alkahest to take funds
         IERC20(demand.collateralToken).forceApprove(alkahestAddress, demand.collateralAmount);
 
-        // Create Alkahest obligation with AI arbiter
-        IAlkahest alkahest = IAlkahest(alkahestAddress);
-        uint256 obligationId = alkahest.lockFunds(demandId, demand.collateralToken, demand.collateralAmount, arbiterAddress);
+        // Lock collateral against pre-created obligation.
+        IAlkahest(alkahestAddress).lockCollateral(
+            demand.obligationId,
+            demand.collateralToken,
+            demand.collateralAmount
+        );
 
-        demand.alkahestObligationId = obligationId;
+        demand.lifecycleStatus = DemandLifecycleStatus.CollateralLocked;
+        demand.lastProtocolActionAt = block.timestamp;
     }
 
     /**
@@ -182,6 +283,10 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
     ) external onlyAgent {
         NLDemand storage demand = demands[demandId];
         require(!demand.settled, "Demand already settled");
+        require(
+            demand.lifecycleStatus == DemandLifecycleStatus.CollateralLocked,
+            "Demand not ready for arbitration"
+        );
 
         TradeExecution storage execution = executions[gmxOrderKey];
         execution.demandId = demandId;
@@ -189,6 +294,9 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
         execution.executedPrice = executedPrice;
         execution.executedSize = executedSize;
         execution.completed = true;
+
+        demand.lifecycleStatus = DemandLifecycleStatus.ArbitrationRequested;
+        demand.lastProtocolActionAt = block.timestamp;
 
         emit TradeExecuted(demandId, gmxOrderKey, executedPrice);
     }
@@ -199,12 +307,22 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
     function releaseFunds(uint256 demandId) external onlyArbiter nonReentrant {
         NLDemand storage demand = demands[demandId];
         require(!demand.settled, "Already settled");
-        require(demand.alkahestObligationId > 0, "No obligation created");
+        require(demand.obligationId > 0, "No obligation created");
+        require(
+            demand.lifecycleStatus == DemandLifecycleStatus.ArbitrationRequested,
+            "Arbitration not requested"
+        );
 
-        // Release via Alkahest
+        bytes32 resolutionHash = keccak256(
+            abi.encodePacked("release", demandId, demand.conditionHash, block.number)
+        );
+
         IAlkahest alkahest = IAlkahest(alkahestAddress);
-        alkahest.releaseFunds(demand.alkahestObligationId);
+        alkahest.resolveObligation(demand.obligationId, true, resolutionHash);
+        alkahest.releaseObligation(demand.obligationId);
 
+        demand.lifecycleStatus = DemandLifecycleStatus.ResolvedRelease;
+        demand.lastProtocolActionAt = block.timestamp;
         demand.settled = true;
 
         // Update agent's credit score on ERC-8004
@@ -220,11 +338,23 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
         NLDemand storage demand = demands[demandId];
         require(!demand.settled, "Already settled");
         require(block.timestamp >= demand.releaseTime, "Release time not reached");
+        require(demand.obligationId > 0, "No obligation created");
+        require(
+            demand.lifecycleStatus == DemandLifecycleStatus.ArbitrationRequested,
+            "Arbitration not requested"
+        );
 
-        // Clawback via Alkahest
+        bytes32 resolutionHash = keccak256(
+            abi.encodePacked("clawback", demandId, demand.conditionHash, block.number)
+        );
+
+        // Clawback via Alkahest lifecycle
         IAlkahest alkahest = IAlkahest(alkahestAddress);
-        alkahest.clawback(demand.alkahestObligationId);
+        alkahest.resolveObligation(demand.obligationId, false, resolutionHash);
+        alkahest.clawbackObligation(demand.obligationId);
 
+        demand.lifecycleStatus = DemandLifecycleStatus.ResolvedClawback;
+        demand.lastProtocolActionAt = block.timestamp;
         demand.settled = true;
 
         // Penalize credit score

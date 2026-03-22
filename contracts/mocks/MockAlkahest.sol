@@ -13,7 +13,9 @@ contract MockAlkahest is IAlkahest {
     mapping(uint256 => ObligationState) private lifecycleObligations;
     uint256 public obligationCounter;
 
-    constructor() {}
+    constructor() {
+        obligationCounter = 1;
+    }
 
     function createDemand(
         string memory /* nlDescription */,

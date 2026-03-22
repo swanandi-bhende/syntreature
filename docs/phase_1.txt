@@ -99,6 +99,9 @@ Definition of done:
 
 Protocol obligation id is the single source of truth for locked/settled state.
 Local state is a mirror, not an alternative settlement system.
+
+
+
 4. Replace deployment script “mock-first happy path” with dual-mode real integration path
 Why fourth: agent judges check your runnable path, not only contracts.
 
