@@ -1,0 +1,32 @@
+{
+  "network": "Status Network Sepolia",
+  "chainId": 1660990954,
+  "rpc": "https://public.sepolia.rpc.status.network",
+  "deployer": "0x1ddD3B4B0CAa2fD0A436B976aac8a7DFb719E4d4",
+  "timestamp": "2026-03-22T10:32:35.220Z",
+  "contracts": {
+    "NLTradingEscrow": "0xB3A0E90884340019fFaA90e8Eb971E71396113e1",
+    "AIEvaluatedArbiter": "0x7C81049B93bc487a1ff4f3B00f98d3A990f84FBa",
+    "MockAlkahest": "0x01Dd5eB506d1B760e0EB8962628186be44B152Fe",
+    "MockERC8004": "0x8FF95a2F11d54158183464A404EB853755E247b9",
+    "MockERC20": "0x9034105e9C469Be8f8A6ea3115C39F9D8dd45e7b",
+    "MockPriceFeed": "0xdDb21a3bF4c4D27978fDEDA8b7bD2FC0B6cf483d",
+    "MockNLAgreements": "0xF636e550262eBB3F46B7b974Ec13f88E072996Cd"
+  },
+  "transactions": {
+    "tokenApproval": "0x2c644e19700ea4a35417819c139856dc7459524112f0ea8c5e3b982d35f0ff24",
+    "createDemand": "0xd137cb7ad7cdb24b2747a866e55f59678f85c6b030813f36cb41c4745ba2b061",
+    "lockFunds": "0x64d0151659502ebd07c58116d61b35fbd28b487c3a31b480d7ddcb005b62803c",
+    "requestArbitration": "0x5bc6cc5b5270c8260d56ca60c04971086734ac590f7f51ccc67975d3ff7a8696"
+  },
+  "gasUsed": {
+    "createDemand": "359676",
+    "lockFunds": "216008",
+    "requestArbitration": "266783"
+  },
+  "notes": [
+    "All transactions executed with gasPrice = 0 on Status Network",
+    "Demonstrates 3+ gasless transactions as required for Status track",
+    "Ready for GMX integration on Arbitrum for trading execution"
+  ]
+}
