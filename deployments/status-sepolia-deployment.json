@@ -3,30 +3,57 @@
   "chainId": 1660990954,
   "rpc": "https://public.sepolia.rpc.status.network",
   "deployer": "0x1ddD3B4B0CAa2fD0A436B976aac8a7DFb719E4d4",
-  "timestamp": "2026-03-22T10:32:35.220Z",
+  "timestamp": "2026-03-22T18:01:13.017Z",
+  "integrationMode": "mock",
+  "qualifyingForPartnerTracks": false,
+  "nonQualifyingReason": "Mock fallback mode only. Do not use this artifact for partner-track qualification.",
+  "protocolAddressesUsed": {
+    "alkahest": "0xad4672Bd1a837E44B6bb4d3BDAee01Aa0404137F",
+    "naturalLanguageAgreements": "0x238319914BeFD38d9dcAE2aD5354419C0a110F4E",
+    "erc8004": "0xF6b6BA05d3B1AA261a63A12D745826C544538973"
+  },
   "contracts": {
-    "NLTradingEscrow": "0xB3A0E90884340019fFaA90e8Eb971E71396113e1",
-    "AIEvaluatedArbiter": "0x7C81049B93bc487a1ff4f3B00f98d3A990f84FBa",
-    "MockAlkahest": "0x01Dd5eB506d1B760e0EB8962628186be44B152Fe",
-    "MockERC8004": "0x8FF95a2F11d54158183464A404EB853755E247b9",
-    "MockERC20": "0x9034105e9C469Be8f8A6ea3115C39F9D8dd45e7b",
-    "MockPriceFeed": "0xdDb21a3bF4c4D27978fDEDA8b7bD2FC0B6cf483d",
-    "MockNLAgreements": "0xF636e550262eBB3F46B7b974Ec13f88E072996Cd"
+    "NLTradingEscrow": "0x6a621ff1eA17f86C4bA97508DDe856e37A3De82b",
+    "AIEvaluatedArbiter": "0x6a5ce3EE45fc5C95885E006c81E911bE7558887F",
+    "CollateralToken": "0x8EC838859c7D22124c23A7AE97a38978C2a8bc12",
+    "MockPriceFeed": "0xf7CD0F19AFAb4FB181636F7cD45d73F3Eb111df8",
+    "MockAlkahest": "0xad4672Bd1a837E44B6bb4d3BDAee01Aa0404137F",
+    "MockERC8004": "0xF6b6BA05d3B1AA261a63A12D745826C544538973",
+    "MockNLAgreements": "0x238319914BeFD38d9dcAE2aD5354419C0a110F4E"
+  },
+  "protocolDemandEvidence": {
+    "demandId": 0,
+    "createdObligationId": "1",
+    "conditionHash": "0xbd6f96344325ad5d0a8faac10993ff8b5f67d2bf10bad1cc34770eec0ec6ac40",
+    "finalExecutionProof": {
+      "conditionHash": "0xbd6f96344325ad5d0a8faac10993ff8b5f67d2bf10bad1cc34770eec0ec6ac40",
+      "obligationId": "1",
+      "lifecycleStatus": 5,
+      "lastProtocolActionAt": 1774202472
+    }
   },
   "transactions": {
-    "tokenApproval": "0x2c644e19700ea4a35417819c139856dc7459524112f0ea8c5e3b982d35f0ff24",
-    "createDemand": "0xd137cb7ad7cdb24b2747a866e55f59678f85c6b030813f36cb41c4745ba2b061",
-    "lockFunds": "0x64d0151659502ebd07c58116d61b35fbd28b487c3a31b480d7ddcb005b62803c",
-    "requestArbitration": "0x5bc6cc5b5270c8260d56ca60c04971086734ac590f7f51ccc67975d3ff7a8696"
+    "tokenApproval": "0xca22a4f7208b6f8bd66d5a39d84a8c810c43679bc3628f05c36bbc3bbe28f156",
+    "createDemand": "0x1fc4d4674dd04f39f2bd76566634857ad175ab9c281eb670ad53f30a9a0fe144",
+    "lockFunds": "0x3378cf8bbdeb93031f95c63547e5f830eea31582e34878a21268235990e1b8e4",
+    "recordTradeExecution": "0x0cf94d76a5ce9b5d14a75660ed9dabd742c09ecb2c49fefc39d5a44421e54508",
+    "requestArbitration": "0x5426112c085b0b0baca27397e1897ddd6323c3dc5d42266e4d68aa33869c7fe3",
+    "settlement": {
+      "action": "clawback",
+      "hash": "0xac6d3907bd9b7d3b075084336338980ee6fba3e417c7620eee4711c55e8e4435"
+    }
   },
   "gasUsed": {
-    "createDemand": "359676",
-    "lockFunds": "216008",
-    "requestArbitration": "266783"
+    "createDemand": "883208",
+    "lockFunds": "159000",
+    "recordTradeExecution": "182412",
+    "requestArbitration": "286707",
+    "settlement": "181732"
   },
   "notes": [
     "All transactions executed with gasPrice = 0 on Status Network",
-    "Demonstrates 3+ gasless transactions as required for Status track",
-    "Ready for GMX integration on Arbitrum for trading execution"
+    "Includes protocol-bound demand creation with condition hash + obligation ID evidence",
+    "Includes full settlement path via clawback tx hash",
+    "Mock mode is fallback only and non-qualifying for partner-track claims"
   ]
 }

@@ -198,7 +198,7 @@ async function main() {
 
   const latestBlock = await ethers.provider.getBlock("latest");
   const baseTimestamp = latestBlock?.timestamp ?? Math.floor(Date.now() / 1000);
-  const releaseTime = baseTimestamp + 1;
+  const releaseTime = baseTimestamp + 10;
   
   // Approve token for escrow
   const approveTx = await mockToken.approve(escrowAddr, ethers.parseEther("10"));
@@ -262,6 +262,14 @@ async function main() {
   const arbitrationReceipt = await arbitrationTx.wait();
   console.log("✅ Arbitration requested (TX4):", arbitrationTx.hash);
   console.log("   Gas used: ", arbitrationReceipt?.gasUsed.toString());
+
+  // Wait until release time is reached before triggering clawback settlement.
+  while (true) {
+    const block = await ethers.provider.getBlock("latest");
+    const ts = block?.timestamp ?? 0;
+    if (ts >= releaseTime) break;
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
 
   // Transaction 5: Settlement completion path (clawback)
   console.log("\n📊 Executing Transaction 5: Clawback settlement (GASLESS)...");
