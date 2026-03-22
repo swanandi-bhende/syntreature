@@ -1,6 +1,6 @@
 import hre from "hardhat";
 
-const { ethers } = hre;
+const { ethers } = hre as any;
 
 /**
  * Deploy script for Status Network Sepolia Testnet

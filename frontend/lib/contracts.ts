@@ -49,8 +49,9 @@ export function getNetworkConfig(chainId: number) {
   return Object.values(NETWORKS).find((n) => n.chainId === chainId);
 }
 
-export function getDeployment(network: string, contract: string) {
-  return DEPLOYMENTS[network as keyof typeof DEPLOYMENTS]?.[
-    contract as any
-  ];
+type DeploymentMap = Record<string, Record<string, string>>;
+
+export function getDeployment(network: string, contract: string): string | undefined {
+  const deployments = DEPLOYMENTS as DeploymentMap;
+  return deployments[network]?.[contract];
 }
