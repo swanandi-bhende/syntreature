@@ -1,0 +1,193 @@
+Phase 1 Goal
+Make the real protocol path mandatory:
+
+NL demand is parsed and hashed as an enforceable condition.
+Alkahest obligation is created and used as the canonical settlement state.
+Escrow release and clawback flow through Alkahest obligation lifecycle, not parallel local state only.
+Files in scope:
+
+NLTradingEscrow.sol
+IAlkahest.sol
+deploy.ts
+INTEGRATION.md
+
+1. Upgrade the integration contract boundary first
+Why first: if interface surface is weak, everything else becomes fake integration.
+
+Do this in IAlkahest.sol:
+
+Replace minimal mock-style methods with protocol-oriented interfaces that represent real obligation lifecycle.
+Add explicit structs for:
+Obligation terms
+Condition reference
+Arbiter configuration
+Settlement status
+Add explicit lifecycle methods:
+createObligation with condition hash and economic terms
+lockCollateral against obligation id
+resolveObligation by arbiter decision
+releaseObligation and clawbackObligation
+getObligation state query
+
+Add event signatures mirroring lifecycle states:
+ObligationCreated
+CollateralLocked
+ObligationResolved
+ObligationReleased
+ObligationClawedBack
+Important design rule:
+
+If real Arkhai package ABI differs, keep an adapter interface layer so your escrow contract stays stable and only adapter changes per network/version.
+Definition of done for this file:
+
+NLTradingEscrow can only interact through this richer lifecycle interface.
+No ambiguity between “local demand id” and “protocol obligation id.”
+
+
+
+2. Make NL hash and Alkahest obligation creation mandatory in demand flow
+Why second: this is the core “load-bearing” proof for Arkhai Applications.
+
+Do this in NLTradingEscrow.sol:
+
+Extend stored demand model with protocol fields:
+conditionHash
+parsedConditionVersion or parserMetadata
+obligationId
+lifecycleStatus enum
+In createDemand:
+Parse/validate NL condition through natural-language-agreements entrypoint.
+Compute and persist conditionHash.
+Immediately create the Alkahest obligation using this conditionHash and demand economics.
+Store returned obligationId.
+Enforce strict invariants:
+Demand is invalid without nonzero conditionHash.
+Demand is invalid without nonzero obligationId.
+Demand cannot move to lock step until obligation exists.
+Remove any path where demand can be “considered valid” without protocol obligation creation.
+Concrete state machine to enforce:
+
+Draft -> ObligationCreated -> CollateralLocked -> ArbitrationRequested -> ResolvedRelease or ResolvedClawback
+Definition of done for this file:
+
+Definition of done for this file:
+
+A demand cannot be created without both NL-derived conditionHash and Alkahest obligation creation.
+Demand settlement state comes from protocol lifecycle, not ad-hoc booleans.
+
+
+
+3. Move fund locking and settlement to protocol lifecycle calls
+Why third: this closes the biggest “decorative integration” risk.
+
+Still in NLTradingEscrow.sol:
+
+In lockFunds:
+Lock collateral explicitly against obligationId using Alkahest lifecycle method.
+Mark local lifecycle status only after protocol call succeeds.
+In releaseFunds and clawbackFunds:
+Require a protocol-valid resolved state.
+Route release/clawback through Alkahest lifecycle calls tied to obligationId.
+Update local state only as projection of protocol result.
+Prevent side-path settlement:
+No direct local settle flag flips unless protocol transaction confirms.
+No demand may be closed without protocol terminal state.
+Add getter for judge visibility:
+getDemandExecutionProof returning conditionHash, obligationId, lifecycleStatus, and last protocol action timestamp.
+
+Definition of done:
+
+Protocol obligation id is the single source of truth for locked/settled state.
+Local state is a mirror, not an alternative settlement system.
+4. Replace deployment script “mock-first happy path” with dual-mode real integration path
+Why fourth: agent judges check your runnable path, not only contracts.
+
+Do this in deploy.ts:
+
+Add deployment mode flags:
+integrationMode equals real or mock
+default to real when addresses are provided
+Require real protocol addresses from env for real mode:
+Alkahest core address
+natural-language-agreements address
+ERC-8004 registry address
+Fail fast in real mode if required addresses missing.
+In artifact output, include:
+integrationMode
+protocol addresses used
+created obligation id
+condition hash
+tx hashes for create demand, lock, arbitration request, release or clawback
+Keep mock mode only as local fallback and clearly mark artifact as non-qualifying.
+
+Definition of done:
+
+One command can produce a real-mode artifact that proves protocol-path execution.
+No accidental “looks-real” artifact from mock mode.
+5. Write one end-to-end protocol test that proves true load-bearing behavior
+This is required by your acceptance criteria.
+
+Add or update test in existing suite:
+
+NLTradingEscrow.test.ts
+Required scenario:
+
+Input NL demand text.
+Condition hash generated and stored.
+Alkahest obligation created and id stored.
+Collateral locked via obligation lifecycle.
+Arbitration result submitted.
+Settlement completed via release path.
+Assert terminal protocol state and local mirrored state consistency.
+Must include assertions for:
+
+conditionHash not empty
+obligationId nonzero
+protocol lifecycle event sequence emitted in order
+final settlement state is terminal and immutable
+
+Definition of done:
+
+Single test demonstrates NL input -> obligation -> lock -> arbitrate -> settle with protocol-backed evidence.
+6. Update integration documentation so judges see evidence, not claims
+Do this in INTEGRATION.md:
+
+Add “Load-bearing proof” section with:
+Exact interfaces used
+Exact lifecycle path
+Real mode deployment prerequisites
+Add “Non-qualifying modes” section:
+Explain mock mode purpose and limits.
+Add “Evidence checklist” section:
+condition hash artifact field
+obligation id artifact field
+tx hashes per lifecycle step
+where to find each proof in deployment json
+Add package/import proof:
+List the actual Arkhai packages or contracts imported in production path.
+If direct package import not possible on network, document adapter pattern and why.
+
+Definition of done:
+
+A judge can open one doc and understand exactly why integration is load-bearing and verifiable.
+7. Close the acceptance criteria with explicit sign-off checks
+Use this exact gate before moving to Phase 2:
+
+Functional gate:
+End-to-end test passes with protocol lifecycle assertions.
+Architecture gate:
+No settlement path bypasses Alkahest lifecycle.
+Evidence gate:
+Deployment artifact contains condition hash, obligation id, and lifecycle tx hashes.
+Documentation gate:
+INTEGRATION doc explains real integration and package usage with clear proof references.
+Honesty gate:
+Any mocked fallback is explicitly labeled non-qualifying for partner-track claims.
+
+Common pitfalls to avoid in this phase
+
+Keeping both local and protocol settlement as peers.
+Hashing NL text but never binding it to obligation lifecycle.
+“Real integration” claims while deploy script still defaults to mock silently.
+Emitting events that imply settlement without protocol state transition.
+Writing docs that describe intended architecture instead of executed path.

@@ -1,0 +1,163 @@
+A reviewer can connect wallet, get clear network guidance, submit one onchain action, and immediately see tx receipts plus explorer links in a structured Judge Demo Mode panel.
+
+1. Add wallet connect + wallet state model in index.tsx
+
+Add connection state:
+provider
+signer
+walletAddress
+isConnected
+chainId
+chainName
+connectError
+
+Add buttons:
+Connect Wallet
+Switch to Status Sepolia
+Disconnect (optional)
+Use browser wallet integration:
+request accounts
+request chain id
+subscribe to accountsChanged and chainChanged
+Add visual status chips:
+Wallet: Connected or Not connected
+Network: Correct or Wrong
+Agent role: Authorized agent or Read-only wallet
+Why this matters:
+Judges must immediately see whether they are in a valid execution context.
+
+2. Add network guardrails in index.tsx
+
+Define required chains:
+Status Sepolia for escrow flow
+Arbitrum Sepolia for GMX evidence viewing
+Before any write action:
+block tx if wrong chain
+show one-click switch network action
+
+Display guardrail reason clearly:
+Wrong network
+Wallet not authorized as agent
+Missing contract address config
+Disable action buttons when guardrails fail.
+Why this matters:
+Prevents failed demo attempts and proves operational maturity.
+
+3. Make Create Demand button execute onchain in index.tsx
+
+Replace simulated timeout flow with real contract call:
+instantiate contract from connected signer
+call createDemand with parsed input fields
+Compute deterministic release time client-side:
+now + selected duration (for demo use 24h default)
+Wrap tx lifecycle:
+pending: show wallet prompt + spinner
+submitted: show tx hash immediately
+confirmed: show success and receipt summary
+failed: show error reason and badge
+Persist tx records in UI state:
+step
+txHash
+status
+blockNumber
+timestamp
+explorerUrl
+
+Important caveat:
+Your contract currently uses onlyAgent checks. If judge wallet is not the agent, writes will revert. Add a clear pre-check:
+
+compare connected wallet to configured agent address and disable write action with explanation if mismatch.
+4. Centralize contracts + explorer metadata in contracts.ts
+
+Add helper creators:
+getProvider
+getSigner
+getEscrowContract
+getArbiterContract
+Add network metadata map with explorer base URLs.
+Add utility methods:
+toExplorerTxUrl(chainId, txHash)
+toExplorerAddressUrl(chainId, address)
+isSupportedChain(chainId)
+isExpectedAgent(walletAddress)
+Add typed contract address config getter with required checks:
+throw descriptive error when env key missing.
+Why this matters:
+Keeps page logic clean and makes proof links consistent and reliable.
+
+5. Add Judge Demo Mode panel in index.tsx
+Include one dedicated panel with these sections.
+
+Step Checklist
+Connect wallet
+Correct chain
+Create demand tx submitted
+Create demand tx confirmed
+Proof link opened
+Current Chain
+chain name
+chain id
+network status badge
+Contract Addresses
+escrow address
+arbiter address
+GMX manager address
+each with explorer address links
+Latest Transactions
+list of most recent tx actions
+each row:
+step name
+tx hash shortened
+status badge: pending, success, failed
+explorer link
+block number if available
+
+Pass or Fail Summary
+green pass when minimum demo flow completed
+red fail if any required step missing
+Why this matters:
+Agent judges scan for structure and explicit evidence surfaces.
+
+6. Configure env keys in .env.local
+Add or verify these keys:
+
+NEXT_PUBLIC_STATUS_CHAIN_ID
+NEXT_PUBLIC_ARBITRUM_CHAIN_ID
+NEXT_PUBLIC_STATUS_EXPLORER
+NEXT_PUBLIC_ARBITRUM_EXPLORER
+NEXT_PUBLIC_ESCROW_ADDRESS_STATUS
+NEXT_PUBLIC_ARBITER_ADDRESS_STATUS
+NEXT_PUBLIC_GMX_ADDRESS_ARBITRUM
+NEXT_PUBLIC_AGENT_ADDRESS
+NEXT_PUBLIC_STATUS_RPC
+Also align with root env if needed for consistency, but frontend must be self-sufficient for demo.
+
+7. UX details that improve judge scoring
+
+Add deterministic error copy:
+User rejected signature
+Wrong network
+Unauthorized wallet for onlyAgent function
+Missing env config
+Show tx hash immediately after submission, not only after confirmation.
+Keep a compact action log panel so judges can screenshot proof
+quickly.
+Make mobile-safe layout for judge recording on laptop/tablet.
+8. One full reproducible judge flow to support in UI
+
+Connect wallet.
+Auto-check network and prompt switch.
+Enter NL demand text.
+Submit createDemand tx.
+Show receipt and explorer link.
+Show checklist updated to pass state.
+This satisfies your acceptance criterion:
+A judge can reproduce one full flow from UI with visible proof links.
+
+9. Validation checklist before you mark Phase 5 done
+
+Wrong chain blocks writes with clear fix action.
+Non-agent wallet clearly shown and write disabled.
+Create Demand creates real tx hash and confirmation.
+Explorer link opens correct Status explorer tx page.
+Judge Demo Mode shows checklist, chain, contracts, latest txs, and pass or fail badges.

@@ -1,0 +1,108 @@
+What I extracted from the official track pages:
+
+Status Network requires:
+Verified deployment on Status Sepolia.
+At least one gasless tx with tx-hash proof showing gasPrice/gas = 0.
+AI agent component.
+README or short demo video.
+bond.credit requires:
+Live GMX perp trading on Arbitrum during the hackathon window.
+No simulation-only flow.
+ERC-8004 credit score tie-in on Arbitrum.
+Arkhai Applications requires:
+Alkahest and/or natural-language-agreements as load-bearing core dependency.
+Not decorative integration.
+Arkhai Escrow Extensions requires:
+New arbiter/verification/obligation primitive.
+Must go beyond wrapper-level changes.
+Open Track meta-judging rewards:
+Coherent, human-control-first product with strong evidence, not integration checklist spam.
+
+Current gap map against your repo:
+
+Frontend is still mostly simulated UX in index.tsx, not wallet-connected contract actions.
+Arkhai usage is currently mocked in deployment flow, so “load-bearing” proof is weak:
+NLTradingEscrow.sol
+deploy.ts
+GMX integration currently behaves as a wrapper with test/mocked routing on Sepolia:
+GMXPositionManager.sol
+deployArbitrum.ts
+Arbiter extension exists but execution path is incomplete:
+AIEvaluatedArbiter.sol has evaluation and reputation update, but final arbitration execution is still mostly event-level.
+README is much better now, but judge-facing “replay proof package” is still missing:
+README.md
+Need deterministic runbook + track mapping + evidence index.
+Security and judging trust risk:
+Real private key present in root env file; rotate immediately before submission.
+
+Detailed plan to make this fully judge-credible
+
+Phase 1: Make the core truly load-bearing (highest impact)
+
+Replace mock Arkhai wiring with real package integrations where available.
+Make NL condition parsing and condition hash generation part of the actual execution path.
+Ensure Alkahest obligation lifecycle is the main settlement mechanism, not side-call demo logic.
+Acceptance criteria:
+One end-to-end test shows NL input -> obligation created -> funds lock -> arbitration result -> settlement.
+README evidence points to real protocol calls and package imports.
+Target files:
+NLTradingEscrow.sol
+IAlkahest.sol
+deploy.ts
+INTEGRATION.md
+
+Phase 2: Upgrade Arkhai extension from concept to protocol-level primitive
+
+Complete execute path in arbiter so outcome triggers release/clawback through trusted escrow interface.
+Add verifiable proof format for AI evaluation result (signed payload, hash, source metadata).
+Add reputation-weighting logic that materially changes arbitration behavior, not just score bookkeeping.
+Acceptance criteria:
+Tests prove success and failure paths with different reputation outcomes.
+New primitive behavior is clear and measurable.
+Target files:
+AIEvaluatedArbiter.sol
+AIEvaluatedArbiter.test.ts
+
+Phase 3: Make bond.credit proof non-ambiguous
+
+Separate “testnet wrapper” from “live GMX flow” documentation and scripts.
+Produce a replayable evidence bundle for live open and close tx on Arbitrum with timestamps and hashes.
+Add ERC-8004 score update event linkage after trade result.
+Acceptance criteria:
+Clear proof pack: open tx, close tx, position details, score update proof.
+Zero “could be simulated” ambiguity in README wording.
+Target files:
+deployArbitrum.ts
+GMXPositionManager.sol
+arbitrum-deployment.json
+README.md
+
+Phase 4: Make Status track proof bulletproof
+
+Add explicit gasless verification lines for each required tx.
+Include one additional gasless tx showing settlement completion path, not only setup actions.
+Keep tx-hash links and “why this tx matters” one-liners.
+Acceptance criteria:
+Status section has deployment proof + gasless tx proof + AI-agent action explanation + short demo clip link.
+
+Target files:
+status-sepolia-deployment.json
+README.md
+
+Phase 5: Convert frontend from static showcase to judge demo console
+
+Add wallet connect and network guardrails.
+Wire Create Demand button to onchain transaction flow.
+Show transaction receipts and explorer links in UI after each action.
+Add “Judge Demo Mode” panel:
+Step checklist.
+Current chain.
+Contract addresses.
+Latest txs with pass/fail badges.
+Acceptance criteria:
+Judge can reproduce 1 full flow from UI with visible proof links.
+Target files:
+index.tsx
+contracts.ts
+.env.local
+

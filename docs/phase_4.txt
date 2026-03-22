@@ -1,0 +1,149 @@
+What Phase 4 must prove, explicitly:
+
+You deployed on Status Sepolia.
+You executed gasless transactions with tx-hash evidence.
+You show a full lifecycle path, not just setup.
+You include an AI-agent action explanation.
+You include a short demo clip link.
+Use these two files as the single proof surface:
+
+status-sepolia-deployment.json
+README.md
+Detailed execution plan
+
+Add one more Status transaction for settlement completion
+Right now your proof has create demand, lock funds, request arbitration.
+Add at least one terminal action transaction:
+preferred: releaseFunds on escrow after arbitration decision
+fallback: clawbackFunds when release condition is not met
+This must be on Status Sepolia and included with tx hash.
+Outcome: reviewers can see this is a complete path, not only setup.
+Upgrade status proof artifact structure in status-sepolia-deployment.json
+Add a strict, judge-friendly structure with these blocks:
+
+statusTrackQualification:
+
+deployedOnStatusSepolia: true
+chainId: 1660990954
+aiAgentComponentPresent: true
+hasReadmeOrDemo: true
+gaslessVerification:
+
+For each required tx, include:
+name
+txHash
+explorerUrl
+receiptStatus
+gasUsed
+gasPrice
+effectiveGasPrice
+verifiedGasless boolean
+verificationNote
+Include rows for:
+createDemand
+lockFunds
+requestArbitration
+settlementCompletion (new)
+
+lifecycleProof:
+
+demandId
+obligationId if available
+flow:
+demand_created_tx
+funds_locked_tx
+arbitration_requested_tx
+settlement_completed_tx
+aiAgentActionEvidence:
+
+agentId
+agentAddress
+actionSummary
+decisionBoundary summary
+demo:
+
+shortDemoUrl
+demoCovers array:
+deployment
+gasless tx verification
+settlement completion
+agent explanation
+Important:
+
+Put explicit verifiedGasless true or false per tx.
+Do not leave any implied verification; make it machine-readable.
+Add explicit gasless verification lines in README.md
+In your Status section, include a compact proof table with one row per transaction and these columns:
+
+
+Step
+Tx Hash
+Explorer
+Gas Price
+Effective Gas Price
+Status
+Why this tx matters
+Add four rows:
+
+Create demand
+Lock funds
+Request arbitration
+Settlement completion (new required row)
+Each row’s Why this tx matters should be one line:
+
+Create demand: shows AI agent created enforceable NL intent
+Lock funds: proves escrow collateralization
+Request arbitration: proves dispute/evaluation path initiated
+Settlement completion: proves escrow lifecycle reached terminal state
+Add non-ambiguous Status qualification statement in README.md
+Add a short subsection titled Status Qualification Check:
+Verified contract deployment on Status Sepolia: Yes
+Gasless tx hash proof provided: Yes
+AI agent component performing onchain action: Yes
+README and short demo evidence included: Yes
+This removes interpretation and helps agent judges score quickly.
+
+Add AI-agent action explanation in README.md
+Add 4 bullets:
+What the agent decides
+What the contract enforces
+What is verifiable onchain
+What tx sequence corresponds to those decisions
+Keep this practical and tied to tx hashes already shown.
+
+Add short demo clip link in README.md
+Include a dedicated line:
+Short demo clip: URL
+And specify what the clip shows in order:
+Status deployment proof
+Gasless tx page checks
+Settlement completion tx page
+Agent action narrative
+If video is not ready yet, place a temporary label clearly marked Pending and close it before final submission.
+
+Tighten wording to avoid any “could be simulated” interpretation
+In Status section:
+Avoid words like demo-only, mock, simulated for qualifying proof rows.
+If anything is mock, isolate it under a separate non-qualifying subsection and do not mix with Status proof rows.
+
+Final validation checklist before closing Phase 4
+For status-sepolia-deployment.json:
+All 4 tx hashes present.
+All 4 have gasPrice and effectiveGasPrice recorded.
+All 4 marked verifiedGasless true only when values support it.
+settlementCompletion tx present and linked in lifecycleProof.
+shortDemoUrl present.
+For README.md:
+
+Status proof table includes all 4 steps.
+Each row has Why this tx matters one-liner.
+Qualification check is explicit Yes/No style.
+AI-agent action explanation included.
+Demo clip link included.
+Definition of done for Phase 4
+
+Status proof shows deployment plus full lifecycle including settlement.
+Gasless verification is explicit per tx, not implied.
+README gives judge-ready narrative and quick scoring surface.
+No ambiguity remains about qualification criteria coverage.
+

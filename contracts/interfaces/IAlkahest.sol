@@ -3,10 +3,27 @@ pragma solidity ^0.8.24;
 
 /**
  * @title IAlkahest
- * @dev Simplified interface to Alkahest escrow protocol
- * For full interface, see: https://github.com/arkhai-io/alkahest
+ * @dev Protocol-oriented interface boundary for Alkahest escrow lifecycle.
+ *
+ * Design note:
+ * - The richer lifecycle surface below is the stable contract boundary used by this repo.
+ * - Legacy methods are retained as adapter compatibility hooks so integrations remain
+ *   stable across network-specific ABI differences.
+ *
+ * For full upstream protocol, see: https://github.com/arkhai-io/alkahest
  */
 interface IAlkahest {
+    enum SettlementStatus {
+        Uninitialized,
+        ObligationCreated,
+        CollateralLocked,
+        ResolvedRelease,
+        ResolvedClawback,
+        Released,
+        ClawedBack,
+        Cancelled
+    }
+
     struct Demand {
         address requester;
         string nlDescription;
@@ -15,6 +32,102 @@ interface IAlkahest {
         bool settled;
     }
 
+    struct ObligationTerms {
+        address requester;
+        address beneficiary;
+        address collateralToken;
+        uint256 collateralAmount;
+        uint256 releaseTime;
+        uint256 createdAt;
+    }
+
+    struct ConditionReference {
+        bytes32 conditionHash;
+        string conditionURI;
+        bytes32 parserMetadataHash;
+        uint64 parserVersion;
+    }
+
+    struct ArbiterConfig {
+        address arbiter;
+        address resolver;
+        bool reputationWeighted;
+        uint256 minReputationScore;
+        bytes32 policyHash;
+    }
+
+    struct ObligationState {
+        uint256 obligationId;
+        uint256 demandId;
+        ObligationTerms terms;
+        ConditionReference condition;
+        ArbiterConfig arbiterConfig;
+        SettlementStatus status;
+        uint256 resolvedAt;
+        bool exists;
+    }
+
+    event ObligationCreated(
+        uint256 indexed obligationId,
+        uint256 indexed demandId,
+        address indexed requester,
+        address beneficiary,
+        bytes32 conditionHash
+    );
+
+    event CollateralLocked(
+        uint256 indexed obligationId,
+        address indexed token,
+        uint256 amount,
+        address indexed locker
+    );
+
+    event ObligationResolved(
+        uint256 indexed obligationId,
+        bool shouldRelease,
+        bytes32 resolutionHash,
+        address indexed resolver
+    );
+
+    event ObligationReleased(
+        uint256 indexed obligationId,
+        address indexed beneficiary,
+        uint256 amount
+    );
+
+    event ObligationClawedBack(
+        uint256 indexed obligationId,
+        address indexed requester,
+        uint256 amount
+    );
+
+    function createObligation(
+        uint256 demandId,
+        ObligationTerms calldata terms,
+        ConditionReference calldata condition,
+        ArbiterConfig calldata arbiterConfig
+    ) external returns (uint256 obligationId);
+
+    function lockCollateral(uint256 obligationId, address token, uint256 amount) external;
+
+    function resolveObligation(
+        uint256 obligationId,
+        bool shouldRelease,
+        bytes32 resolutionHash
+    ) external;
+
+    function releaseObligation(uint256 obligationId) external;
+
+    function clawbackObligation(uint256 obligationId) external;
+
+    function getObligation(uint256 obligationId) external view returns (ObligationState memory);
+
+    // -----------------------------------------------------------------------
+    // Adapter compatibility surface (legacy style methods)
+    // -----------------------------------------------------------------------
+    // Kept intentionally so downstream contracts can remain stable while an
+    // adapter contract translates these calls to the richer lifecycle methods
+    // on networks where upstream ABI differs.
     struct Obligation {
         address beneficiary;
         uint256 amount;
