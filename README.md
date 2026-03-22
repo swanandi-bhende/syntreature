@@ -97,13 +97,33 @@ cd frontend && npm install && npm run dev
 
 ## 🚀 Deployment Status
 
-- [ ] Status Sepolia gasless deploy
+- [x] Status Sepolia gasless deploy
 - [ ] Arbitrum testnet GMX integration
 - [ ] Frontend live at deployment URL
 - [ ] All tx hashes documented
 - [ ] Project published
 
 **Run deployment:** `npm run deploy:status`
+
+### Status Sepolia Proofs (2026-03-22)
+
+Deployment artifact:
+- [deployments/status-sepolia-deployment.json](deployments/status-sepolia-deployment.json)
+
+Contract addresses:
+- NLTradingEscrow: 0xB3A0E90884340019fFaA90e8Eb971E71396113e1
+- AIEvaluatedArbiter: 0x7C81049B93bc487a1ff4f3B00f98d3A990f84FBa
+- MockAlkahest: 0x01Dd5eB506d1B760e0EB8962628186be44B152Fe
+- MockERC8004: 0x8FF95a2F11d54158183464A404EB853755E247b9
+
+Required gasless transaction proofs:
+- createDemand: [0xd137cb7ad7cdb24b2747a866e55f59678f85c6b030813f36cb41c4745ba2b061](https://sepoliascan.status.network/tx/0xd137cb7ad7cdb24b2747a866e55f59678f85c6b030813f36cb41c4745ba2b061)
+- lockFunds: [0x64d0151659502ebd07c58116d61b35fbd28b487c3a31b480d7ddcb005b62803c](https://sepoliascan.status.network/tx/0x64d0151659502ebd07c58116d61b35fbd28b487c3a31b480d7ddcb005b62803c)
+- requestArbitration: [0x5bc6cc5b5270c8260d56ca60c04971086734ac590f7f51ccc67975d3ff7a8696](https://sepoliascan.status.network/tx/0x5bc6cc5b5270c8260d56ca60c04971086734ac590f7f51ccc67975d3ff7a8696)
+
+Verification summary:
+- All 3 transaction pages resolve on Status Sepolia explorer.
+- Each transaction is marked Success and shows gas price 0 Gwei on explorer.
 
 ---
 
