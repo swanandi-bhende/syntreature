@@ -83,7 +83,7 @@ contract MockNaturalLanguageAgreements {
         bool isValid;
     }
 
-    function parseAgreement(string memory nlText) external pure returns (ParsedAgreement memory) {
+    function parseAgreement(string memory nlText) external view returns (ParsedAgreement memory) {
         return ParsedAgreement({
             requester: msg.sender,
             beneficiary: msg.sender,

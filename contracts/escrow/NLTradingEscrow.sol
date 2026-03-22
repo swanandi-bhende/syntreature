@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IAlkahest, INaturalLanguageAgreements, IERC8004, IPriceFeed} from "../interfaces/IAlkahest.sol";
 
 /**
@@ -162,7 +162,7 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
         IERC20(demand.collateralToken).safeTransferFrom(agentAddress, address(this), demand.collateralAmount);
 
         // Approve Alkahest to take funds
-        IERC20(demand.collateralToken).safeApprove(alkahestAddress, demand.collateralAmount);
+        IERC20(demand.collateralToken).forceApprove(alkahestAddress, demand.collateralAmount);
 
         // Create Alkahest obligation with AI arbiter
         IAlkahest alkahest = IAlkahest(alkahestAddress);

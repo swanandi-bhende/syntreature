@@ -1,4 +1,6 @@
-import { ethers } from "hardhat";
+import hre from "hardhat";
+
+const { ethers } = hre;
 
 /**
  * Deploy script for Status Network Sepolia Testnet

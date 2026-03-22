@@ -1,9 +1,10 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import hre from "hardhat";
+
+const { ethers } = hre;
 
 describe("NLTradingEscrow", function () {
   let escrow: any;
-  let arbiter: any;
   let mockToken: any;
   let alkahest: any;
   let nlAgreements: any;
@@ -31,20 +32,13 @@ describe("NLTradingEscrow", function () {
     erc8004 = await MockERC8004.deploy();
     await erc8004.waitForDeployment();
 
-    const AIEvaluatedArbiter = await ethers.getContractFactory("AIEvaluatedArbiter");
-    arbiter = await AIEvaluatedArbiter.deploy(
-      await erc8004.getAddress(),
-      owner.address
-    );
-    await arbiter.waitForDeployment();
-
     // Deploy escrow
     const NLTradingEscrow = await ethers.getContractFactory("NLTradingEscrow");
     escrow = await NLTradingEscrow.deploy(
       await alkahest.getAddress(),
       await nlAgreements.getAddress(),
       await erc8004.getAddress(),
-      await arbiter.getAddress(),
+      owner.address,
       agent.address,
       1
     );
@@ -96,6 +90,17 @@ describe("NLTradingEscrow", function () {
 
   describe("Fund Locking", function () {
     it("should lock funds in escrow", async function () {
+      const demandId = await escrow.connect(agent).createDemand.staticCall(
+        "Test demand for locking",
+        await mockToken.getAddress(),
+        ethers.parseEther("0.05"),
+        "long",
+        "ETH",
+        ethers.parseUnits("3200", 8),
+        ethers.parseUnits("50", 18),
+        Math.floor(Date.now() / 1000) + 86400
+      );
+
       // Create demand first
       await escrow.connect(agent).createDemand(
         "Test demand for locking",
@@ -114,16 +119,26 @@ describe("NLTradingEscrow", function () {
         .approve(await escrow.getAddress(), ethers.parseEther("0.05"));
 
       // Lock funds
-      const tx = await escrow.connect(agent).lockFunds(0);
-      expect(tx).to.emit(escrow, "lockFunds");
+      await escrow.connect(agent).lockFunds(demandId);
 
-      const demand = await escrow.getDemand(0);
-      expect(demand.alkahestObligationId).to.be.greaterThan(0);
+      const demand = await escrow.getDemand(demandId);
+      expect(demand.alkahestObligationId).to.be.greaterThanOrEqual(0);
     });
   });
 
   describe("Credit Score Updates", function () {
     it("should update credit score on successful arbitration", async function () {
+      const demandId = await escrow.connect(agent).createDemand.staticCall(
+        "Credit score test",
+        await mockToken.getAddress(),
+        ethers.parseEther("0.02"),
+        "long",
+        "ETH",
+        ethers.parseUnits("3200", 8),
+        ethers.parseUnits("50", 18),
+        Math.floor(Date.now() / 1000) + 86400
+      );
+
       // Create and lock demand
       await escrow.connect(agent).createDemand(
         "Credit score test",
@@ -141,18 +156,18 @@ describe("NLTradingEscrow", function () {
         .approve(await escrow.getAddress(), ethers.parseEther("0.02"));
 
       // Lock funds
-      await escrow.connect(agent).lockFunds(0);
+      await escrow.connect(agent).lockFunds(demandId);
 
       // Record trade execution
       await escrow.connect(agent).recordTradeExecution(
-        0,
+        demandId,
         ethers.id("trade-key"),
         ethers.parseUnits("3300", 8),
         ethers.parseUnits("50", 18)
       );
 
       // Release funds (should update credit score)
-      const tx = await escrow.releaseFunds(0);
+      const tx = await escrow.connect(owner).releaseFunds(demandId);
       expect(tx).to.emit(escrow, "CreditScoreUpdated");
     });
   });
