@@ -1,0 +1,19 @@
+{
+  "network": "Arbitrum Sepolia (Testnet)",
+  "chainId": 421614,
+  "rpc": "https://sepolia-rollup.arbitrum.io/rpc",
+  "deployer": "0x1ddD3B4B0CAa2fD0A436B976aac8a7DFb719E4d4",
+  "timestamp": "2026-03-22T10:56:21.032Z",
+  "contracts": {
+    "GMXPositionManager": "0x8FF95a2F11d54158183464A404EB853755E247b9",
+    "GMXPositionRouter": "0x0000000000000000000000000000000000000000",
+    "GMXExchangeRouter": "0x0000000000000000000000000000000000000000",
+    "PriceFeed": "0xF636e550262eBB3F46B7b974Ec13f88E072996Cd"
+  },
+  "notes": [
+    "🟡 TESTNET DEPLOYMENT: For testing only",
+    "Required for bond.credit track: Live GMX perp trading",
+    "Supply USDC or other collateral for real positions",
+    "Monitor position P&L for credit score updates"
+  ]
+}
