@@ -72,6 +72,11 @@ contract AIEvaluatedArbiter is Ownable {
         uint256 executedAt;
         uint256 createdAt;
         uint256 resolvedAt;
+        // Reputation-weighted decision fields
+        uint256 requiredConfidenceBps; // Threshold adjusted by agent reputation
+        uint256 confidenceMarginBps; // Actual confidence minus required threshold
+        uint256 agentScoreAtEvaluation; // Agent's credit score when evaluated
+        uint256 applyingReputationDiscount; // Discount applied to threshold (bps)
     }
 
     struct EvaluationProof {
@@ -105,11 +110,23 @@ contract AIEvaluatedArbiter is Ownable {
     uint256 public caseCounter;
     uint256 public minimumCreditScore = 100; // Agents need min score to arbitrate
 
+    // Reputation-weighted decision parameters
+    uint256 public baseConfidenceThresholdBps = 5000; // 50% base threshold
+    uint256 public highScoreThreshold = 800; // Score 800+ gets max discount
+    uint256 public highScoreDiscount = 1000; // 10% discount on threshold
+    uint256 public midScoreThreshold = 500; // Score 500-799 gets mid discount
+    uint256 public midScoreDiscount = 500; // 5% discount on threshold
+    uint256 public lowScoreMinEvidenceSources = 2; // Low score: require 2+ sources
+    uint256 public lowScoreProofWindowSeconds = 3600; // Low score: proof must be <1hr old
+    uint256 public lowScoreCooldownSeconds = 86400; // Low score: 24hr cooldown between executions
+    uint256 public riskThreshold = 300; // Score below 300: strict controls apply
+
     mapping(uint256 => ArbitrationCase) private cases;
     mapping(address => AgentReputation) public agentReputation;
     mapping(address => uint256[]) public agentCases;
     mapping(address => bool) public trustedEscrow;
     mapping(bytes32 => bool) public usedProofNonces;
+    mapping(address => uint256) public lastExecutionTimes; // Track last execution time per agent for cooldown
 
     // Events
     event ArbitrationRequested(
@@ -139,6 +156,18 @@ contract AIEvaluatedArbiter is Ownable {
         uint256 reputationWeightUsed
     );
     event ReputationUpdated(address indexed agent, uint256 creditScore);
+    event DecisionThresholdApplied(
+        uint256 indexed caseId,
+        uint256 baseThreshold,
+        uint256 reputationDiscount,
+        uint256 requiredThreshold,
+        uint256 confidenceMargin
+    );
+    event ExecutionCooldownEnforced(
+        uint256 indexed caseId,
+        address indexed agent,
+        uint256 requiredWaitSeconds
+    );
 
     // Modifiers
     modifier onlyValidAgent(uint256 agentId) {
@@ -216,6 +245,10 @@ contract AIEvaluatedArbiter is Ownable {
      * 3. Evaluates the condition
      * 4. Submits signed evidence payload
      *
+     * Reputation-weighted gating:
+     * - High-score agents: lower confidence threshold required
+     * - Low-score agents: stricter evidence requirements (2+ sources, fresher proofs)
+     *
      * @param caseId Arbitration case ID
      * @param proof Signed evaluation payload from oracle (includes verdict + provenance)
      */
@@ -230,6 +263,29 @@ contract AIEvaluatedArbiter is Ownable {
         require(proof.sourceCount > 0, "Missing evidence sources");
         require(proof.confidenceBps <= 10_000, "Invalid confidence");
 
+        // Get agent's current reputation score
+        uint256 agentScore;
+        if (agentReputation[arbitrationCase.agent].agentId == 0) {
+            // Agent not yet initialized; will be set during _updateReputation
+            agentScore = 500; // Default starting score
+        } else {
+            agentScore = agentReputation[arbitrationCase.agent].creditScore;
+        }
+
+        // Calculate reputation-adjusted required confidence threshold
+        uint256 discount = getReputationDiscount(agentScore);
+        uint256 requiredThreshold = getRequiredConfidenceBps(agentScore);
+
+        // Low-score agents require additional evidence constraints
+        if (agentScore < midScoreThreshold) {
+            require(proof.sourceCount >= lowScoreMinEvidenceSources, "Low-score agent: insufficient evidence sources");
+            uint256 proofAge = block.timestamp - proof.issuedAt;
+            require(proofAge <= lowScoreProofWindowSeconds, "Low-score agent: proof too old");
+        }
+
+        // Check confidence meets reputation-adjusted threshold
+        require(proof.confidenceBps >= requiredThreshold, "Confidence below required threshold");
+
         bytes32 nonceKey = keccak256(abi.encodePacked(caseId, proof.nonce));
         require(!usedProofNonces[nonceKey], "Nonce already used");
 
@@ -238,6 +294,9 @@ contract AIEvaluatedArbiter is Ownable {
         require(signer == oracleAddress, "Invalid proof signature");
 
         usedProofNonces[nonceKey] = true;
+
+        // Calculate confidence margin
+        uint256 confidenceMargin = proof.confidenceBps - requiredThreshold;
 
         arbitrationCase.shouldRelease = proof.shouldRelease;
         arbitrationCase.evaluationProof = proof.signature;
@@ -253,10 +312,22 @@ contract AIEvaluatedArbiter is Ownable {
         arbitrationCase.evaluatedAt = block.timestamp;
         arbitrationCase.resolved = true;
         arbitrationCase.resolvedAt = block.timestamp;
+        // Store reputation-weighted decision info
+        arbitrationCase.requiredConfidenceBps = requiredThreshold;
+        arbitrationCase.confidenceMarginBps = confidenceMargin;
+        arbitrationCase.agentScoreAtEvaluation = agentScore;
+        arbitrationCase.applyingReputationDiscount = discount;
 
         // Update agent reputation based on oracle evaluation
         _updateReputation(arbitrationCase.agent, arbitrationCase.agentId, proof.shouldRelease);
 
+        emit DecisionThresholdApplied(
+            caseId,
+            baseConfidenceThresholdBps,
+            discount,
+            requiredThreshold,
+            confidenceMargin
+        );
         emit ConditionEvaluated(caseId, proof.shouldRelease, abi.encodePacked(digest));
         emit EvaluationProofStored(
             caseId,
@@ -270,6 +341,9 @@ contract AIEvaluatedArbiter is Ownable {
     /**
      * @dev Execute arbitration decision (release or clawback)
      * Called by escrow or oracle to finalize the arbitration
+     *
+     * Enforces execution cooldown for low-score agents:
+     * Agents below riskThreshold must wait lowScoreCooldownSeconds between executions
      */
     function executeArbitration(uint256 caseId) external {
         ArbitrationCase storage arbitrationCase = cases[caseId];
@@ -278,6 +352,24 @@ contract AIEvaluatedArbiter is Ownable {
         require(arbitrationCase.lifecycle == CaseLifecycle.Evaluated, "Invalid lifecycle");
         require(msg.sender == arbitrationCase.escrowAddress || msg.sender == oracleAddress, "Not authorized");
         require(trustedEscrow[arbitrationCase.escrowAddress], "Escrow not trusted");
+
+        // Enforce execution cooldown for low-score agents
+        uint256 agentScore = arbitrationCase.agentScoreAtEvaluation;
+        if (agentScore < riskThreshold) {
+            uint256 timeSinceLastExecution = block.timestamp - lastExecutionTimes[arbitrationCase.agent];
+            if (lastExecutionTimes[arbitrationCase.agent] > 0) {
+                // Agent has executed before; check cooldown
+                require(
+                    timeSinceLastExecution >= lowScoreCooldownSeconds,
+                    "Execution cooldown: low-score agent must wait"
+                );
+            }
+            emit ExecutionCooldownEnforced(
+                caseId,
+                arbitrationCase.agent,
+                lowScoreCooldownSeconds - min(timeSinceLastExecution, lowScoreCooldownSeconds)
+            );
+        }
 
         bytes32 proofHash = arbitrationCase.evaluationHash;
         uint256 reputationWeightUsed = agentReputation[arbitrationCase.agent].creditScore;
@@ -310,6 +402,7 @@ contract AIEvaluatedArbiter is Ownable {
 
         arbitrationCase.executed = true;
         arbitrationCase.executedAt = block.timestamp;
+        lastExecutionTimes[arbitrationCase.agent] = block.timestamp;
 
         emit ArbitrationExecuted(caseId, arbitrationCase.shouldRelease, arbitrationCase.executedAt);
 
@@ -408,6 +501,38 @@ contract AIEvaluatedArbiter is Ownable {
         oracleAddress = _oracle;
     }
 
+    /**
+     * @dev Configure reputation-weighted decision parameters
+     */
+    function setReputationThresholds(
+        uint256 _baseConfidenceThresholdBps,
+        uint256 _highScoreThreshold,
+        uint256 _highScoreDiscount,
+        uint256 _midScoreThreshold,
+        uint256 _midScoreDiscount,
+        uint256 _riskThreshold
+    ) external onlyOwner {
+        baseConfidenceThresholdBps = _baseConfidenceThresholdBps;
+        highScoreThreshold = _highScoreThreshold;
+        highScoreDiscount = _highScoreDiscount;
+        midScoreThreshold = _midScoreThreshold;
+        midScoreDiscount = _midScoreDiscount;
+        riskThreshold = _riskThreshold;
+    }
+
+    /**
+     * @dev Configure low-score agent constraints
+     */
+    function setLowScoreConstraints(
+        uint256 _minEvidenceSources,
+        uint256 _proofWindowSeconds,
+        uint256 _cooldownSeconds
+    ) external onlyOwner {
+        lowScoreMinEvidenceSources = _minEvidenceSources;
+        lowScoreProofWindowSeconds = _proofWindowSeconds;
+        lowScoreCooldownSeconds = _cooldownSeconds;
+    }
+
     function setTrustedEscrow(address escrow, bool isTrusted) external onlyOwner {
         require(escrow != address(0), "Invalid escrow");
         trustedEscrow[escrow] = isTrusted;
@@ -433,6 +558,50 @@ contract AIEvaluatedArbiter is Ownable {
         );
 
         return keccak256(abi.encodePacked("\x19\x01", _domainSeparatorV4(), structHash));
+    }
+
+    /**
+     * @dev Calculate reputation-based discount on confidence threshold
+     * Higher scores get larger discounts:
+     * - Score 800+: 1000 bps discount (10%)
+     * - Score 500-799: 500 bps discount (5%)
+     * - Score <500: 0 bps discount (strict)
+     */
+    function getReputationDiscount(uint256 creditScore) public view returns (uint256) {
+        if (creditScore >= highScoreThreshold) {
+            return highScoreDiscount;
+        } else if (creditScore >= midScoreThreshold) {
+            return midScoreDiscount;
+        }
+        return 0;
+    }
+
+    /**
+     * @dev Calculate required confidence threshold adjusted by agent reputation
+     * requiredConfidenceBps = baseConfidenceThresholdBps - reputationDiscount
+     */
+    function getRequiredConfidenceBps(uint256 creditScore) public view returns (uint256) {
+        uint256 discount = getReputationDiscount(creditScore);
+        uint256 required = baseConfidenceThresholdBps - discount;
+        return required;
+    }
+
+    /**
+     * @dev Get decision parameters for a specific case
+     */
+    function getDecisionParams(uint256 caseId) external view returns (
+        uint256 requiredThreshold,
+        uint256 confidenceMargin,
+        uint256 agentScore,
+        uint256 appliedDiscount
+    ) {
+        ArbitrationCase storage arbitrationCase = cases[caseId];
+        return (
+            arbitrationCase.requiredConfidenceBps,
+            arbitrationCase.confidenceMarginBps,
+            arbitrationCase.agentScoreAtEvaluation,
+            arbitrationCase.applyingReputationDiscount
+        );
     }
 
     function _domainSeparatorV4() internal view returns (bytes32) {
