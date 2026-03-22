@@ -1,4 +1,5 @@
 import hre from "hardhat";
+import fs from "fs";
 
 const { ethers } = hre as any;
 
@@ -94,6 +95,10 @@ async function main() {
 
   // Step 5: Prepare for gasless transactions
   console.log("\n5️⃣ Preparing gasless transactions on Status Network...");
+
+  const latestBlock = await ethers.provider.getBlock("latest");
+  const baseTimestamp = latestBlock?.timestamp ?? Math.floor(Date.now() / 1000);
+  const releaseTime = baseTimestamp + 86400;
   
   // Approve token for escrow
   const approveTx = await mockToken.approve(escrowAddr, ethers.parseEther("10"));
@@ -112,7 +117,7 @@ async function main() {
     "ETH",
     ethers.parseUnits("3200", 8), // Price in 8 decimals
     ethers.parseUnits("50", 18), // 50 USD notional
-    Math.floor(Date.now() / 1000) + 86400 // 24h from now
+    releaseTime // 24h from latest block time
   );
   const createReceipt = await createTx.wait();
   console.log("✅ Demand created (TX1):", createTx.hash);
@@ -190,7 +195,7 @@ async function main() {
     ]
   };
 
-  const fs = require("fs");
+  fs.mkdirSync("deployments", { recursive: true });
   fs.writeFileSync(
     "deployments/status-sepolia-deployment.json",
     JSON.stringify(deploymentInfo, null, 2)

@@ -125,8 +125,7 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
         uint256 demandId = obligationCounter++;
 
         // Parse NL agreement to validate structure
-        INaturalLanguageAgreements nlAgreements = INaturalLanguageAgreements(nlAgreementsAddress);
-        bytes32 conditionHash = nlAgreements.hashCondition(nlDescription);
+        INaturalLanguageAgreements(nlAgreementsAddress).hashCondition(nlDescription);
 
         // Store demand
         NLDemand storage demand = demands[demandId];
@@ -166,8 +165,6 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
 
         // Create Alkahest obligation with AI arbiter
         IAlkahest alkahest = IAlkahest(alkahestAddress);
-        bytes32 conditionHash = keccak256(abi.encodePacked(demand.nlDescription));
-
         uint256 obligationId = alkahest.lockFunds(demandId, demand.collateralToken, demand.collateralAmount, arbiterAddress);
 
         demand.alkahestObligationId = obligationId;

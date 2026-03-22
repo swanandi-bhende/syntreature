@@ -128,7 +128,6 @@ contract GMXPositionManager is Ownable {
         require(pos.openedAt > 0, "Position not found");
 
         uint256 closePrice = _getETHPrice();
-        uint256 timeDelta = block.timestamp - pos.openedAt;
 
         // Simple PnL calculation: (closePrice - openPrice) * (sizeDeltaUsd / openPrice)
         if (pos.isLong) {

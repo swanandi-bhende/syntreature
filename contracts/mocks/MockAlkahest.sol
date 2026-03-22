@@ -15,19 +15,19 @@ contract MockAlkahest is IAlkahest {
     constructor() {}
 
     function createDemand(
-        string memory nlDescription,
-        bytes32 conditionHash,
-        uint256 releaseTime
+        string memory /* nlDescription */,
+        bytes32 /* conditionHash */,
+        uint256 /* releaseTime */
     ) external pure returns (uint256) {
         // Mock implementation
         return 1;
     }
 
     function lockFunds(
-        uint256 demandId,
+        uint256 /* demandId */,
         address token,
         uint256 amount,
-        address arbiter
+        address /* arbiter */
     ) external returns (uint256) {
         uint256 obligationId = obligationCounter++;
 
