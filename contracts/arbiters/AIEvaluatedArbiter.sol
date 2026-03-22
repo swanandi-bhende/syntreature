@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {IERC8004} from "../interfaces/IAlkahest.sol";
 
 interface ITrustedEscrowExecution {
@@ -25,6 +26,17 @@ interface ITrustedEscrowExecution {
  * Reference: https://github.com/arkhai-io/alkahest (IArbitrable interface)
  */
 contract AIEvaluatedArbiter is Ownable {
+    using ECDSA for bytes32;
+
+    bytes32 private constant EIP712_DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 private constant EVALUATION_PROOF_TYPEHASH =
+        keccak256(
+            "EvaluationProof(uint256 caseId,bool shouldRelease,uint256 confidenceBps,string model,string modelVersion,bytes32 sourceIdsHash,uint256 sourceCount,bytes32 evidenceHash,uint256 issuedAt,uint256 expiresAt,uint256 nonce)"
+        );
+    bytes32 private constant NAME_HASH = keccak256("AIEvaluatedArbiter");
+    bytes32 private constant VERSION_HASH = keccak256("1");
+
     enum CaseLifecycle {
         Requested,
         Evaluated,
@@ -42,6 +54,13 @@ contract AIEvaluatedArbiter is Ownable {
         address agent;
         uint256 agentId;
         address evaluator;
+        bytes32 evaluationHash;
+        bytes32 sourceIdsHash;
+        uint256 confidenceBps;
+        bytes32 evidenceHash;
+        string model;
+        string modelVersion;
+        uint256 proofNonce;
         string nlCondition;
         bytes evaluationProof; // Off-chain AI evaluation result
         CaseLifecycle lifecycle;
@@ -53,6 +72,21 @@ contract AIEvaluatedArbiter is Ownable {
         uint256 executedAt;
         uint256 createdAt;
         uint256 resolvedAt;
+    }
+
+    struct EvaluationProof {
+        uint256 caseId;
+        bool shouldRelease;
+        uint256 confidenceBps;
+        string model;
+        string modelVersion;
+        bytes32 sourceIdsHash;
+        uint256 sourceCount;
+        bytes32 evidenceHash;
+        uint256 issuedAt;
+        uint256 expiresAt;
+        uint256 nonce;
+        bytes signature;
     }
 
     struct AgentReputation {
@@ -75,6 +109,7 @@ contract AIEvaluatedArbiter is Ownable {
     mapping(address => AgentReputation) public agentReputation;
     mapping(address => uint256[]) public agentCases;
     mapping(address => bool) public trustedEscrow;
+    mapping(bytes32 => bool) public usedProofNonces;
 
     // Events
     event ArbitrationRequested(
@@ -84,6 +119,13 @@ contract AIEvaluatedArbiter is Ownable {
         string nlCondition
     );
     event ConditionEvaluated(uint256 indexed caseId, bool shouldRelease, bytes proof);
+    event EvaluationProofStored(
+        uint256 indexed caseId,
+        bytes32 evaluationHash,
+        bytes32 sourceIdsHash,
+        uint256 confidenceBps,
+        address indexed evaluator
+    );
     event ArbitrationResolved(uint256 indexed caseId, address indexed agent, uint256 payoutAmount);
     event ArbitrationExecuted(uint256 indexed caseId, bool shouldRelease, uint256 executedAt);
     event ArbitrationCancelled(uint256 indexed caseId, address indexed cancelledBy, uint256 cancelledAt);
@@ -172,34 +214,57 @@ contract AIEvaluatedArbiter is Ownable {
      * 1. Fetches on-chain data (prices, trade state)
      * 2. Parses the NL condition
      * 3. Evaluates the condition
-     * 4. Submits proof (could be hash of evaluation, signature, etc.)
+     * 4. Submits signed evidence payload
      *
      * @param caseId Arbitration case ID
-     * @param shouldRelease Whether the condition was met
-     * @param proof Off-chain proof/signature from oracle
+     * @param proof Signed evaluation payload from oracle (includes verdict + provenance)
      */
-    function evaluateCondition(
-        uint256 caseId,
-        bool shouldRelease,
-        bytes calldata proof
-    ) external onlyOracle {
+    function evaluateCondition(uint256 caseId, EvaluationProof calldata proof) external onlyOracle {
         ArbitrationCase storage arbitrationCase = cases[caseId];
         require(!arbitrationCase.resolved, "Already resolved");
         require(arbitrationCase.escrowAddress != address(0), "Invalid case");
         require(arbitrationCase.lifecycle == CaseLifecycle.Requested, "Invalid lifecycle");
+        require(proof.caseId == caseId, "Case mismatch");
+        require(proof.issuedAt <= block.timestamp, "Proof not yet valid");
+        require(proof.expiresAt >= block.timestamp, "Proof expired");
+        require(proof.sourceCount > 0, "Missing evidence sources");
+        require(proof.confidenceBps <= 10_000, "Invalid confidence");
 
-        arbitrationCase.shouldRelease = shouldRelease;
-        arbitrationCase.evaluationProof = proof;
-        arbitrationCase.evaluator = msg.sender;
+        bytes32 nonceKey = keccak256(abi.encodePacked(caseId, proof.nonce));
+        require(!usedProofNonces[nonceKey], "Nonce already used");
+
+        bytes32 digest = hashEvaluationProof(proof);
+        address signer = digest.recover(proof.signature);
+        require(signer == oracleAddress, "Invalid proof signature");
+
+        usedProofNonces[nonceKey] = true;
+
+        arbitrationCase.shouldRelease = proof.shouldRelease;
+        arbitrationCase.evaluationProof = proof.signature;
+        arbitrationCase.evaluator = signer;
+        arbitrationCase.evaluationHash = digest;
+        arbitrationCase.sourceIdsHash = proof.sourceIdsHash;
+        arbitrationCase.confidenceBps = proof.confidenceBps;
+        arbitrationCase.evidenceHash = proof.evidenceHash;
+        arbitrationCase.model = proof.model;
+        arbitrationCase.modelVersion = proof.modelVersion;
+        arbitrationCase.proofNonce = proof.nonce;
         arbitrationCase.lifecycle = CaseLifecycle.Evaluated;
         arbitrationCase.evaluatedAt = block.timestamp;
         arbitrationCase.resolved = true;
         arbitrationCase.resolvedAt = block.timestamp;
 
         // Update agent reputation based on oracle evaluation
-        _updateReputation(arbitrationCase.agent, arbitrationCase.agentId, shouldRelease);
+        _updateReputation(arbitrationCase.agent, arbitrationCase.agentId, proof.shouldRelease);
 
-        emit ConditionEvaluated(caseId, shouldRelease, proof);
+        emit ConditionEvaluated(caseId, proof.shouldRelease, abi.encodePacked(digest));
+        emit EvaluationProofStored(
+            caseId,
+            digest,
+            proof.sourceIdsHash,
+            proof.confidenceBps,
+            signer
+        );
     }
 
     /**
@@ -214,7 +279,7 @@ contract AIEvaluatedArbiter is Ownable {
         require(msg.sender == arbitrationCase.escrowAddress || msg.sender == oracleAddress, "Not authorized");
         require(trustedEscrow[arbitrationCase.escrowAddress], "Escrow not trusted");
 
-        bytes32 proofHash = keccak256(arbitrationCase.evaluationProof);
+        bytes32 proofHash = arbitrationCase.evaluationHash;
         uint256 reputationWeightUsed = agentReputation[arbitrationCase.agent].creditScore;
 
         ITrustedEscrowExecution escrow = ITrustedEscrowExecution(arbitrationCase.escrowAddress);
@@ -347,6 +412,40 @@ contract AIEvaluatedArbiter is Ownable {
         require(escrow != address(0), "Invalid escrow");
         trustedEscrow[escrow] = isTrusted;
         emit TrustedEscrowSet(escrow, isTrusted);
+    }
+
+    function hashEvaluationProof(EvaluationProof calldata proof) public view returns (bytes32) {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                EVALUATION_PROOF_TYPEHASH,
+                proof.caseId,
+                proof.shouldRelease,
+                proof.confidenceBps,
+                keccak256(bytes(proof.model)),
+                keccak256(bytes(proof.modelVersion)),
+                proof.sourceIdsHash,
+                proof.sourceCount,
+                proof.evidenceHash,
+                proof.issuedAt,
+                proof.expiresAt,
+                proof.nonce
+            )
+        );
+
+        return keccak256(abi.encodePacked("\x19\x01", _domainSeparatorV4(), structHash));
+    }
+
+    function _domainSeparatorV4() internal view returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(
+                    EIP712_DOMAIN_TYPEHASH,
+                    NAME_HASH,
+                    VERSION_HASH,
+                    block.chainid,
+                    address(this)
+                )
+            );
     }
 
     // Utility functions
