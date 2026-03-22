@@ -199,6 +199,10 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
             _buildArbiterConfig()
         );
         require(obligationId > 0, "Invalid obligation ID");
+        require(
+            _getProtocolStatus(obligationId) == IAlkahest.SettlementStatus.ObligationCreated,
+            "Protocol obligation not created"
+        );
     }
 
     function _buildObligationTerms(
@@ -267,6 +271,11 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
             demand.collateralAmount
         );
 
+        require(
+            _getProtocolStatus(demand.obligationId) == IAlkahest.SettlementStatus.CollateralLocked,
+            "Protocol collateral not locked"
+        );
+
         demand.lifecycleStatus = DemandLifecycleStatus.CollateralLocked;
         demand.lastProtocolActionAt = block.timestamp;
     }
@@ -286,6 +295,10 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
         require(
             demand.lifecycleStatus == DemandLifecycleStatus.CollateralLocked,
             "Demand not ready for arbitration"
+        );
+        require(
+            _getProtocolStatus(demand.obligationId) == IAlkahest.SettlementStatus.CollateralLocked,
+            "Protocol not ready for arbitration"
         );
 
         TradeExecution storage execution = executions[gmxOrderKey];
@@ -319,7 +332,15 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
 
         IAlkahest alkahest = IAlkahest(alkahestAddress);
         alkahest.resolveObligation(demand.obligationId, true, resolutionHash);
+        require(
+            _getProtocolStatus(demand.obligationId) == IAlkahest.SettlementStatus.ResolvedRelease,
+            "Protocol release not resolved"
+        );
         alkahest.releaseObligation(demand.obligationId);
+        require(
+            _getProtocolStatus(demand.obligationId) == IAlkahest.SettlementStatus.Released,
+            "Protocol release not finalized"
+        );
 
         demand.lifecycleStatus = DemandLifecycleStatus.ResolvedRelease;
         demand.lastProtocolActionAt = block.timestamp;
@@ -351,7 +372,15 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
         // Clawback via Alkahest lifecycle
         IAlkahest alkahest = IAlkahest(alkahestAddress);
         alkahest.resolveObligation(demand.obligationId, false, resolutionHash);
+        require(
+            _getProtocolStatus(demand.obligationId) == IAlkahest.SettlementStatus.ResolvedClawback,
+            "Protocol clawback not resolved"
+        );
         alkahest.clawbackObligation(demand.obligationId);
+        require(
+            _getProtocolStatus(demand.obligationId) == IAlkahest.SettlementStatus.ClawedBack,
+            "Protocol clawback not finalized"
+        );
 
         demand.lifecycleStatus = DemandLifecycleStatus.ResolvedClawback;
         demand.lastProtocolActionAt = block.timestamp;
@@ -385,6 +414,36 @@ contract NLTradingEscrow is Ownable, ReentrancyGuard {
      */
     function getDemand(uint256 demandId) external view returns (NLDemand memory) {
         return demands[demandId];
+    }
+
+    /**
+     * @dev Judge-facing proof fields for protocol-bound lifecycle tracking.
+     */
+    function getDemandExecutionProof(
+        uint256 demandId
+    )
+        external
+        view
+        returns (
+            bytes32 conditionHash,
+            uint256 obligationId,
+            DemandLifecycleStatus lifecycleStatus,
+            uint256 lastProtocolActionAt
+        )
+    {
+        NLDemand storage demand = demands[demandId];
+        return (
+            demand.conditionHash,
+            demand.obligationId,
+            demand.lifecycleStatus,
+            demand.lastProtocolActionAt
+        );
+    }
+
+    function _getProtocolStatus(
+        uint256 obligationId
+    ) internal view returns (IAlkahest.SettlementStatus) {
+        return IAlkahest(alkahestAddress).getObligation(obligationId).status;
     }
 
     /**

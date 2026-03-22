@@ -127,6 +127,9 @@ Definition of done:
 
 One command can produce a real-mode artifact that proves protocol-path execution.
 No accidental “looks-real” artifact from mock mode.
+
+
+
 5. Write one end-to-end protocol test that proves true load-bearing behavior
 This is required by your acceptance criteria.
 
