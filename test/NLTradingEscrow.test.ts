@@ -234,7 +234,7 @@ describe("NLTradingEscrow", function () {
 
       const [conditionHash, obligationId] = await escrow.getDemandExecutionProof(demandId);
       expect(conditionHash).to.not.equal(ethers.ZeroHash);
-      expect(obligationId).to.be.greaterThan(0n);
+      expect(obligationId).to.be.greaterThan(0);
 
       await mockToken
         .connect(agent)

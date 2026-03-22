@@ -19,17 +19,32 @@ import {IERC8004} from "../interfaces/IAlkahest.sol";
  * Reference: https://github.com/arkhai-io/alkahest (IArbitrable interface)
  */
 contract AIEvaluatedArbiter is Ownable {
+    enum CaseLifecycle {
+        Requested,
+        Evaluated,
+        ExecutedRelease,
+        ExecutedClawback,
+        Cancelled
+    }
+
     // Structs
     struct ArbitrationCase {
         uint256 caseId;
-        address escrow;
+        address escrowAddress;
+        uint256 demandOrObligationId;
         uint256 obligationId;
         address agent;
         uint256 agentId;
+        address evaluator;
         string nlCondition;
         bytes evaluationProof; // Off-chain AI evaluation result
+        CaseLifecycle lifecycle;
         bool resolved;
+        bool executed;
         bool shouldRelease;
+        uint256 requestedAt;
+        uint256 evaluatedAt;
+        uint256 executedAt;
         uint256 createdAt;
         uint256 resolvedAt;
     }
@@ -50,7 +65,7 @@ contract AIEvaluatedArbiter is Ownable {
     uint256 public caseCounter;
     uint256 public minimumCreditScore = 100; // Agents need min score to arbitrate
 
-    mapping(uint256 => ArbitrationCase) public cases;
+    mapping(uint256 => ArbitrationCase) private cases;
     mapping(address => AgentReputation) public agentReputation;
     mapping(address => uint256[]) public agentCases;
 
@@ -63,6 +78,8 @@ contract AIEvaluatedArbiter is Ownable {
     );
     event ConditionEvaluated(uint256 indexed caseId, bool shouldRelease, bytes proof);
     event ArbitrationResolved(uint256 indexed caseId, address indexed agent, uint256 payoutAmount);
+    event ArbitrationExecuted(uint256 indexed caseId, bool shouldRelease, uint256 executedAt);
+    event ArbitrationCancelled(uint256 indexed caseId, address indexed cancelledBy, uint256 cancelledAt);
     event ReputationUpdated(address indexed agent, uint256 creditScore);
 
     // Modifiers
@@ -109,12 +126,20 @@ contract AIEvaluatedArbiter is Ownable {
 
         ArbitrationCase storage arbitrationCase = cases[caseId];
         arbitrationCase.caseId = caseId;
-        arbitrationCase.escrow = escrow;
+    arbitrationCase.escrowAddress = escrow;
+    arbitrationCase.demandOrObligationId = obligationId;
         arbitrationCase.obligationId = obligationId;
         arbitrationCase.agent = agent;
         arbitrationCase.agentId = agentId;
+    arbitrationCase.evaluator = address(0);
         arbitrationCase.nlCondition = nlCondition;
+    arbitrationCase.lifecycle = CaseLifecycle.Requested;
+    arbitrationCase.executed = false;
+    arbitrationCase.requestedAt = block.timestamp;
+    arbitrationCase.evaluatedAt = 0;
+    arbitrationCase.executedAt = 0;
         arbitrationCase.createdAt = block.timestamp;
+    arbitrationCase.resolvedAt = 0;
         arbitrationCase.resolved = false;
 
         agentCases[agent].push(caseId);
@@ -143,10 +168,14 @@ contract AIEvaluatedArbiter is Ownable {
     ) external onlyOracle {
         ArbitrationCase storage arbitrationCase = cases[caseId];
         require(!arbitrationCase.resolved, "Already resolved");
-        require(arbitrationCase.escrow != address(0), "Invalid case");
+        require(arbitrationCase.escrowAddress != address(0), "Invalid case");
+        require(arbitrationCase.lifecycle == CaseLifecycle.Requested, "Invalid lifecycle");
 
         arbitrationCase.shouldRelease = shouldRelease;
         arbitrationCase.evaluationProof = proof;
+        arbitrationCase.evaluator = msg.sender;
+        arbitrationCase.lifecycle = CaseLifecycle.Evaluated;
+        arbitrationCase.evaluatedAt = block.timestamp;
         arbitrationCase.resolved = true;
         arbitrationCase.resolvedAt = block.timestamp;
 
@@ -163,16 +192,39 @@ contract AIEvaluatedArbiter is Ownable {
     function executeArbitration(uint256 caseId) external {
         ArbitrationCase storage arbitrationCase = cases[caseId];
         require(arbitrationCase.resolved, "Not evaluated yet");
-        require(msg.sender == arbitrationCase.escrow || msg.sender == oracleAddress, "Not authorized");
+        require(!arbitrationCase.executed, "Already executed");
+        require(arbitrationCase.lifecycle == CaseLifecycle.Evaluated, "Invalid lifecycle");
+        require(msg.sender == arbitrationCase.escrowAddress || msg.sender == oracleAddress, "Not authorized");
 
         // Execute release or clawback on the escrow
         if (arbitrationCase.shouldRelease) {
             // Call escrow's releaseFunds(obligationId)
             // This requires the escrow to have a function that trusts the arbiter
             // For now, emit event - integration with escrow happens at escrow level
+            arbitrationCase.lifecycle = CaseLifecycle.ExecutedRelease;
+        } else {
+            arbitrationCase.lifecycle = CaseLifecycle.ExecutedClawback;
         }
 
+        arbitrationCase.executed = true;
+        arbitrationCase.executedAt = block.timestamp;
+
+        emit ArbitrationExecuted(caseId, arbitrationCase.shouldRelease, arbitrationCase.executedAt);
+
         emit ArbitrationResolved(caseId, arbitrationCase.agent, 0);
+    }
+
+    /**
+     * @dev Cancel a non-terminal arbitration case.
+     */
+    function cancelArbitration(uint256 caseId) external onlyOwner {
+        ArbitrationCase storage arbitrationCase = cases[caseId];
+        require(arbitrationCase.escrowAddress != address(0), "Invalid case");
+        require(!arbitrationCase.executed, "Already executed");
+        require(arbitrationCase.lifecycle != CaseLifecycle.Cancelled, "Already cancelled");
+
+        arbitrationCase.lifecycle = CaseLifecycle.Cancelled;
+        emit ArbitrationCancelled(caseId, msg.sender, block.timestamp);
     }
 
     /**
