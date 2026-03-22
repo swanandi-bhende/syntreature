@@ -13,45 +13,161 @@ const { ethers } = hre as any;
  * Gas: 0 (gasless at protocol level)
  */
 
+type IntegrationMode = "real" | "mock";
+
+type ProtocolAddresses = {
+  alkahest: string;
+  nlAgreements: string;
+  erc8004: string;
+};
+
+type DeployContext = {
+  mode: IntegrationMode;
+  protocolAddresses: ProtocolAddresses;
+  mockArtifacts: {
+    mockPriceFeed?: string;
+    mockToken?: string;
+    mockAlkahest?: string;
+    mockNLAgreements?: string;
+    mockERC8004?: string;
+  };
+};
+
+function normalizeMode(raw?: string): IntegrationMode | undefined {
+  if (!raw) return undefined;
+  const mode = raw.trim().toLowerCase();
+  if (mode === "real" || mode === "mock") return mode;
+  throw new Error(`Invalid INTEGRATION_MODE: ${raw}. Use 'real' or 'mock'.`);
+}
+
+function getEnvAddress(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value && value.length > 0 ? value : undefined;
+}
+
+function isNonZeroAddress(value?: string): boolean {
+  if (!value) return false;
+  return /^0x[a-fA-F0-9]{40}$/.test(value) && value !== ethers.ZeroAddress;
+}
+
+function resolveIntegrationMode(): { mode: IntegrationMode; hasRealAddresses: boolean } {
+  const envMode = normalizeMode(process.env.INTEGRATION_MODE);
+  const hasRealAddresses =
+    isNonZeroAddress(getEnvAddress("ALKAHEST_CORE_ADDRESS")) &&
+    isNonZeroAddress(getEnvAddress("NL_AGREEMENTS_ADDRESS")) &&
+    isNonZeroAddress(getEnvAddress("ERC8004_REGISTRY_ADDRESS"));
+
+  const mode = envMode ?? (hasRealAddresses ? "real" : "mock");
+  return { mode, hasRealAddresses };
+}
+
+function resolveProtocolAddresses(mode: IntegrationMode): ProtocolAddresses {
+  const alkahest = getEnvAddress("ALKAHEST_CORE_ADDRESS");
+  const nlAgreements = getEnvAddress("NL_AGREEMENTS_ADDRESS");
+  const erc8004 = getEnvAddress("ERC8004_REGISTRY_ADDRESS");
+
+  if (mode === "real") {
+    const missing: string[] = [];
+    if (!isNonZeroAddress(alkahest)) missing.push("ALKAHEST_CORE_ADDRESS");
+    if (!isNonZeroAddress(nlAgreements)) missing.push("NL_AGREEMENTS_ADDRESS");
+    if (!isNonZeroAddress(erc8004)) missing.push("ERC8004_REGISTRY_ADDRESS");
+
+    if (missing.length > 0) {
+      throw new Error(
+        `Real mode requires protocol addresses. Missing/invalid: ${missing.join(", ")}`
+      );
+    }
+  }
+
+  return {
+    alkahest: alkahest ?? ethers.ZeroAddress,
+    nlAgreements: nlAgreements ?? ethers.ZeroAddress,
+    erc8004: erc8004 ?? ethers.ZeroAddress,
+  };
+}
+
 async function main() {
   console.log("🚀 Deploying Syntreature to Status Network Sepolia (Gasless)...\n");
 
   const [deployer] = await ethers.getSigners();
   console.log("📍 Deployer:", deployer.address);
 
-  // Step 1: Deploy mock contracts for testing
-  console.log("\n1️⃣ Deploying mock contracts...");
-  
+  const { mode, hasRealAddresses } = resolveIntegrationMode();
+  const protocolAddresses = resolveProtocolAddresses(mode);
+  console.log("📍 Integration mode:", mode);
+  if (mode === "mock" && hasRealAddresses) {
+    console.log("⚠️ Real addresses detected but mock mode was explicitly selected.");
+  }
+
+  const context: DeployContext = {
+    mode,
+    protocolAddresses,
+    mockArtifacts: {},
+  };
+
+  // Step 1: Deploy required dependencies by integration mode
+  console.log("\n1️⃣ Preparing protocol dependencies...");
+
+  let alkahestAddr = protocolAddresses.alkahest;
+  let nlAddr = protocolAddresses.nlAgreements;
+  let erc8004Addr = protocolAddresses.erc8004;
+
+  if (mode === "mock") {
+    const MockAlkahest = await ethers.getContractFactory("MockAlkahest");
+    const alkahest = await MockAlkahest.deploy();
+    await alkahest.waitForDeployment();
+    alkahestAddr = await alkahest.getAddress();
+    context.mockArtifacts.mockAlkahest = alkahestAddr;
+    console.log("✅ Mock Alkahest deployed:", alkahestAddr);
+
+    const Mocks = await ethers.getContractFactory("MockNaturalLanguageAgreements");
+    const nlAgreements = await Mocks.deploy();
+    await nlAgreements.waitForDeployment();
+    nlAddr = await nlAgreements.getAddress();
+    context.mockArtifacts.mockNLAgreements = nlAddr;
+    console.log("✅ Mock NL Agreements deployed:", nlAddr);
+
+    const MockERC8004 = await ethers.getContractFactory("MockERC8004");
+    const erc8004 = await MockERC8004.deploy();
+    await erc8004.waitForDeployment();
+    erc8004Addr = await erc8004.getAddress();
+    context.mockArtifacts.mockERC8004 = erc8004Addr;
+    console.log("✅ Mock ERC-8004 deployed:", erc8004Addr);
+
+    const registerTx = await erc8004.registerAgent(
+      1,
+      deployer.address,
+      JSON.stringify({
+        name: "Syntreature Agent",
+        harness: "Copilot",
+        model: "gpt-5.3-codex",
+        system: "Autonomous NL trading agent",
+      })
+    );
+    await registerTx.wait();
+    console.log("✅ Mock agent registered on ERC-8004");
+  } else {
+    console.log("✅ Real protocol addresses detected and locked:");
+    console.log("   Alkahest:", alkahestAddr);
+    console.log("   NL Agreements:", nlAddr);
+    console.log("   ERC-8004:", erc8004Addr);
+  }
+
+  // Always deploy local collateral token for deterministic demand flow.
   const MockERC20 = await ethers.getContractFactory("MockERC20");
   const mockToken = await MockERC20.deploy("Test ETH", "tETH", ethers.parseEther("1000"));
   await mockToken.waitForDeployment();
   const tokenAddr = await mockToken.getAddress();
-  console.log("✅ Mock ERC20 deployed:", tokenAddr);
-
-  const MockAlkahest = await ethers.getContractFactory("MockAlkahest");
-  const alkahest = await MockAlkahest.deploy();
-  await alkahest.waitForDeployment();
-  const alkahestAddr = await alkahest.getAddress();
-  console.log("✅ Mock Alkahest deployed:", alkahestAddr);
+  context.mockArtifacts.mockToken = tokenAddr;
+  console.log("✅ Collateral token deployed:", tokenAddr);
 
   const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
   const priceFeed = await MockPriceFeed.deploy();
   await priceFeed.waitForDeployment();
   const priceFeedAddr = await priceFeed.getAddress();
+  context.mockArtifacts.mockPriceFeed = priceFeedAddr;
   console.log("✅ Mock Price Feed deployed:", priceFeedAddr);
-
-  const Mocks = await ethers.getContractFactory("MockNaturalLanguageAgreements");
-  const nlAgreements = await Mocks.deploy();
-  await nlAgreements.waitForDeployment();
-  const nlAddr = await nlAgreements.getAddress();
-  console.log("✅ Mock NL Agreements deployed:", nlAddr);
-
-  const MockERC8004 = await ethers.getContractFactory("MockERC8004");
-  const erc8004 = await MockERC8004.deploy();
-  await erc8004.waitForDeployment();
-  const erc8004Addr = await erc8004.getAddress();
-  console.log("✅ Mock ERC-8004 deployed:", erc8004Addr);
-
+  
   // Step 2: Deploy AI-Evaluated Arbiter
   console.log("\n2️⃣ Deploying AI-Evaluated Arbiter...");
   
@@ -77,28 +193,12 @@ async function main() {
   const escrowAddr = await escrow.getAddress();
   console.log("✅ NLTradingEscrow deployed:", escrowAddr);
 
-  // Step 4: Register mock agent on ERC-8004
-  console.log("\n4️⃣ Registering agent on ERC-8004...");
-  
-  const registerTx = await erc8004.registerAgent(
-    1,
-    deployer.address,
-    JSON.stringify({
-      name: "Syntreature Agent",
-      harness: "Copilot",
-      model: "gpt-5.3-codex",
-      system: "Autonomous NL trading agent"
-    })
-  );
-  await registerTx.wait();
-  console.log("✅ Agent registered on ERC-8004");
-
-  // Step 5: Prepare for gasless transactions
+  // Step 4: Prepare protocol lifecycle transactions
   console.log("\n5️⃣ Preparing gasless transactions on Status Network...");
 
   const latestBlock = await ethers.provider.getBlock("latest");
   const baseTimestamp = latestBlock?.timestamp ?? Math.floor(Date.now() / 1000);
-  const releaseTime = baseTimestamp + 86400;
+  const releaseTime = baseTimestamp + 1;
   
   // Approve token for escrow
   const approveTx = await mockToken.approve(escrowAddr, ethers.parseEther("10"));
@@ -123,6 +223,12 @@ async function main() {
   console.log("✅ Demand created (TX1):", createTx.hash);
   console.log("   Gas used: ", createReceipt?.gasUsed.toString());
 
+  const demandProofAfterCreate = await escrow.getDemandExecutionProof(0);
+  const createdConditionHash = demandProofAfterCreate[0];
+  const createdObligationId = demandProofAfterCreate[1];
+  console.log("   Condition hash:", createdConditionHash);
+  console.log("   Obligation ID:", createdObligationId.toString());
+
   // Transaction 2: Lock funds in escrow
   console.log("\n📊 Executing Transaction 2: Lock Funds in Escrow (GASLESS)...");
   
@@ -131,30 +237,51 @@ async function main() {
   console.log("✅ Funds locked (TX2):", lockTx.hash);
   console.log("   Gas used: ", lockReceipt?.gasUsed.toString());
 
-  // Transaction 3: Request arbitration
-  console.log("\n📊 Executing Transaction 3: Request Arbitration (GASLESS)...");
+  console.log("\n📊 Executing Transaction 3: Record trade execution (escrow arbitration gate)...");
+  const gmxOrderKey = ethers.id("syntreature-order-0");
+  const recordTradeTx = await escrow.recordTradeExecution(
+    0,
+    gmxOrderKey,
+    ethers.parseUnits("3201", 8),
+    ethers.parseUnits("50", 18)
+  );
+  const recordTradeReceipt = await recordTradeTx.wait();
+  console.log("✅ Trade recorded (TX3):", recordTradeTx.hash);
+  console.log("   Gas used: ", recordTradeReceipt?.gasUsed.toString());
+
+  // Transaction 4: Request arbitration (arbiter side)
+  console.log("\n📊 Executing Transaction 4: Request Arbitration (GASLESS)...");
   
   const arbitrationTx = await arbiter.requestArbitration(
     escrowAddr,
-    0, // obligationId
+    createdObligationId,
     deployer.address,
     1, // agentId
     nlDescription
   );
   const arbitrationReceipt = await arbitrationTx.wait();
-  console.log("✅ Arbitration requested (TX3):", arbitrationTx.hash);
+  console.log("✅ Arbitration requested (TX4):", arbitrationTx.hash);
   console.log("   Gas used: ", arbitrationReceipt?.gasUsed.toString());
 
-  // Step 6: Summary
+  // Transaction 5: Settlement completion path (clawback)
+  console.log("\n📊 Executing Transaction 5: Clawback settlement (GASLESS)...");
+  const clawbackTx = await escrow.clawbackFunds(0);
+  const clawbackReceipt = await clawbackTx.wait();
+  console.log("✅ Clawback settled (TX5):", clawbackTx.hash);
+  console.log("   Gas used: ", clawbackReceipt?.gasUsed.toString());
+
+  const demandProofFinal = await escrow.getDemandExecutionProof(0);
+
+  // Step 5: Summary
   console.log("\n" + "=".repeat(60));
   console.log("✨ GASLESS DEPLOYMENT COMPLETE ✨");
   console.log("=".repeat(60));
   console.log("\n📝 Contract Addresses:");
   console.log(`   NLTradingEscrow:    ${escrowAddr}`);
   console.log(`   AIEvaluatedArbiter: ${arbiterAddr}`);
-  console.log(`   MockAlkahest:       ${alkahestAddr}`);
-  console.log(`   MockERC8004:        ${erc8004Addr}`);
-  console.log(`   MockERC20:          ${tokenAddr}`);
+  console.log(`   Alkahest:           ${alkahestAddr}`);
+  console.log(`   ERC-8004:           ${erc8004Addr}`);
+  console.log(`   Collateral token:   ${tokenAddr}`);
 
   console.log("\n🔗 Explorer:");
   console.log("   https://sepoliascan.status.network");
@@ -168,31 +295,67 @@ async function main() {
     rpc: "https://public.sepolia.rpc.status.network",
     deployer: deployer.address,
     timestamp: new Date().toISOString(),
+    integrationMode: mode,
+    qualifyingForPartnerTracks: mode === "real",
+    nonQualifyingReason:
+      mode === "mock"
+        ? "Mock fallback mode only. Do not use this artifact for partner-track qualification."
+        : undefined,
+    protocolAddressesUsed: {
+      alkahest: alkahestAddr,
+      naturalLanguageAgreements: nlAddr,
+      erc8004: erc8004Addr,
+    },
     contracts: {
       NLTradingEscrow: escrowAddr,
       AIEvaluatedArbiter: arbiterAddr,
-      MockAlkahest: alkahestAddr,
-      MockERC8004: erc8004Addr,
-      MockERC20: tokenAddr,
+      CollateralToken: tokenAddr,
       MockPriceFeed: priceFeedAddr,
-      MockNLAgreements: nlAddr,
+      ...(mode === "mock"
+        ? {
+            MockAlkahest: context.mockArtifacts.mockAlkahest,
+            MockERC8004: context.mockArtifacts.mockERC8004,
+            MockNLAgreements: context.mockArtifacts.mockNLAgreements,
+          }
+        : {}),
+    },
+    protocolDemandEvidence: {
+      demandId: 0,
+      createdObligationId: createdObligationId.toString(),
+      conditionHash: createdConditionHash,
+      finalExecutionProof: {
+        conditionHash: demandProofFinal[0],
+        obligationId: demandProofFinal[1].toString(),
+        lifecycleStatus: Number(demandProofFinal[2]),
+        lastProtocolActionAt: Number(demandProofFinal[3]),
+      },
     },
     transactions: {
       tokenApproval: approveTx.hash,
       createDemand: createTx.hash,
       lockFunds: lockTx.hash,
+      recordTradeExecution: recordTradeTx.hash,
       requestArbitration: arbitrationTx.hash,
+      settlement: {
+        action: "clawback",
+        hash: clawbackTx.hash,
+      },
     },
     gasUsed: {
       createDemand: createReceipt?.gasUsed.toString(),
       lockFunds: lockReceipt?.gasUsed.toString(),
+      recordTradeExecution: recordTradeReceipt?.gasUsed.toString(),
       requestArbitration: arbitrationReceipt?.gasUsed.toString(),
+      settlement: clawbackReceipt?.gasUsed.toString(),
     },
     notes: [
       "All transactions executed with gasPrice = 0 on Status Network",
-      "Demonstrates 3+ gasless transactions as required for Status track",
-      "Ready for GMX integration on Arbitrum for trading execution",
-    ]
+      "Includes protocol-bound demand creation with condition hash + obligation ID evidence",
+      "Includes full settlement path via clawback tx hash",
+      ...(mode === "mock"
+        ? ["Mock mode is fallback only and non-qualifying for partner-track claims"]
+        : ["Real mode artifact is intended for partner-track proof packaging"]),
+    ],
   };
 
   fs.mkdirSync("deployments", { recursive: true });

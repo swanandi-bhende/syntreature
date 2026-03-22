@@ -155,6 +155,10 @@ final settlement state is terminal and immutable
 Definition of done:
 
 Single test demonstrates NL input -> obligation -> lock -> arbitrate -> settle with protocol-backed evidence.
+
+
+
+
 6. Update integration documentation so judges see evidence, not claims
 Do this in INTEGRATION.md:
 
@@ -176,6 +180,9 @@ If direct package import not possible on network, document adapter pattern and w
 Definition of done:
 
 A judge can open one doc and understand exactly why integration is load-bearing and verifiable.
+
+
+
 7. Close the acceptance criteria with explicit sign-off checks
 Use this exact gate before moving to Phase 2:
 
