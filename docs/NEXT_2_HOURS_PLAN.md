@@ -1,178 +1,179 @@
-# Syntreature: Next 2 Hours Execution Plan
+# Syntreature: Next 2 Hours Execution Plan (Post Deploy)
 
 Date: 2026-03-22
-Goal for this session: move from scaffolded repo to proof-producing testnet execution for Status + Arbitrum tracks.
+Goal for this session: move from "deployed + tested" to "submission-ready + publish-ready" with complete proof packaging.
+
+## Current State Snapshot
+- Status Sepolia deploy: done with 3 gasless proof transactions.
+- Arbitrum Sepolia deploy: done with GMX manager deployed and test open/close flow executed.
+- Frontend local boot: done and page sections verified.
+- Remaining work: documentation completeness, env consistency cleanup, proof quality, and final submission checklist.
 
 ## Outcome Target at T+120
-- Status Sepolia deployment completed and recorded.
-- 3+ Status gasless transaction hashes captured.
-- Arbitrum deployment completed and one open/close GMX flow executed on test setup.
-- Frontend wired to deployed addresses and load-tested locally.
-- README updated with concrete addresses + tx proofs generated in this session.
+- README fully updated with both Status and Arbitrum proof packs.
+- Frontend and root env values aligned and validated.
+- One command-only replay section added so judges can reproduce quickly.
+- Final submission checklist completed and ready for project publish action.
 
-## Hour 1 (Build + Deploy + Gasless Proofs)
+## 0:00-0:20 - Final Proof Pack for Arbitrum
 
-### 0:00-0:10 - Environment and sanity checks
 Tasks:
-- Ensure runtime/env are set and consistent.
-- Confirm compile + tests are green before live deploy.
+- Extract Arbitrum deployment details from deployment artifact.
+- Add GMX manager address, network details, and test tx evidence into README.
+- Mark Arbitrum deployment checklist item complete.
 
 Commands:
 ```bash
-cp .env.example .env.local
-# fill PRIVATE_KEY, STATUS_SEPOLIA_RPC, ARBITRUM_SEPOLIA_RPC
-npm run compile
-npm test
-```
-
-Success criteria:
-- Compile succeeds.
-- Test suite passes.
-- .env.local has non-placeholder values.
-
----
-
-### 0:10-0:30 - Status Sepolia deployment
-Tasks:
-- Deploy contracts to Status Sepolia.
-- Verify deployment JSON is created.
-
-Commands:
-```bash
-npm run deploy:status
-cat deployments/status-sepolia-deployment.json
-```
-
-Success criteria:
-- Deployment script exits successfully.
-- JSON contains contract addresses for:
-  - NLTradingEscrow
-  - AIEvaluatedArbiter
-  - MockAlkahest
-  - MockERC8004
-
----
-
-### 0:30-0:50 - Capture gasless proof transactions (Status track)
-Tasks:
-- Validate at least 3 tx hashes for gasless flow:
-  - createDemand
-  - lockFunds
-  - requestArbitration
-- Confirm each hash resolves on Status Sepolia explorer.
-
-Commands:
-```bash
-jq '.transactions' deployments/status-sepolia-deployment.json
-```
-
-Manual verification:
-- Open each tx hash in https://sepoliascan.status.network
-- Save evidence (hashes + links) in README proof section.
-
-Success criteria:
-- 3 valid hashes documented and explorer-visible.
-
----
-
-### 0:50-1:00 - Quick hardening pass
-Tasks:
-- Remove warning-level issues that can cause confusion in demos.
-- Ensure deploy logs are deterministic.
-
-Focus files:
-- contracts/escrow/NLTradingEscrow.sol
-- contracts/gmx/GMXPositionManager.sol
-- scripts/deploy.ts
-
-Success criteria:
-- Clean compile after edits.
-- No new test regressions.
-
-## Hour 2 (Arbitrum + Frontend + Submission Readiness)
-
-### 1:00-1:20 - Arbitrum deployment and GMX manager validation
-Tasks:
-- Deploy GMX position manager on Arbitrum Sepolia.
-- Validate deployment metadata file exists.
-
-Commands:
-```bash
-npm run deploy:arbitrum
 cat deployments/arbitrum-deployment.json
 ```
 
 Success criteria:
-- GMXPositionManager address produced.
-- Deployment JSON includes network, chainId, and contract addresses.
+- README contains Arbitrum section with:
+  - network
+  - chainId
+  - contract addresses
+  - test trade tx hashes (open/close)
 
 ---
 
-### 1:20-1:40 - Frontend wiring and local end-to-end smoke test
+## 0:20-0:40 - Unified Contract Address Table
+
 Tasks:
-- Fill frontend env values with deployed addresses.
-- Start Next.js app and verify core flows render:
-  - create demand form
-  - active demands list
-  - network status blocks
+- Add one "Deployed Contracts" table in README covering both networks.
+- Include Status + Arbitrum explorer links where applicable.
 
 Commands:
 ```bash
-# set NEXT_PUBLIC_* values in .env.local
+cat deployments/status-sepolia-deployment.json
+cat deployments/arbitrum-deployment.json
+```
+
+Success criteria:
+- README has a single authoritative address table.
+- No duplicate or conflicting addresses in other sections.
+
+---
+
+## 0:40-1:00 - Replayable Demo Path (Judge Workflow)
+
+Tasks:
+- Add "5-Minute Repro" section in README.
+- Provide exact commands to:
+  - install
+  - compile
+  - test
+  - verify deployment JSON files
+  - run frontend
+
+Commands:
+```bash
+npm run compile
+npm test
+cat deployments/status-sepolia-deployment.json
+cat deployments/arbitrum-deployment.json
+cd frontend && npm run dev
+```
+
+Success criteria:
+- Any reviewer can execute one linear command flow from README.
+- No placeholder values in proof sections.
+
+---
+
+## 1:00-1:20 - Environment Consistency Pass
+
+Tasks:
+- Verify env parity between root and frontend env files.
+- Ensure NEXT_PUBLIC values exactly match deployed addresses.
+- Remove stale or duplicate settings that could confuse runtime behavior.
+
+Commands:
+```bash
+cat .env.local
+cat frontend/.env.local
+```
+
+Success criteria:
+- Frontend points to latest deployed Status + Arbitrum addresses.
+- No empty NEXT_PUBLIC deployment keys remain.
+
+---
+
+## 1:20-1:40 - Frontend UX Smoke Pass
+
+Tasks:
+- Launch frontend and verify key UI flows are present:
+  - create demand form
+  - active demands section
+  - network status blocks
+- Capture quick proof notes for README (local verification).
+
+Commands:
+```bash
 cd frontend
-npm install
 npm run dev
 ```
 
 Success criteria:
 - Frontend boots without runtime errors.
-- Demand creation interaction works in UI simulation path.
+- Required sections are visible and responsive.
 
 ---
 
-### 1:40-1:55 - README proof pack update
-Tasks:
-- Replace placeholders with actual addresses and tx hashes from this session.
-- Add concise section: "How this session satisfies each track".
+## 1:40-1:55 - Submission Checklist Closure
 
-Required updates:
-- Status proof table (3+ tx hashes).
-- Arbitrum deploy proof.
-- Contract address table.
-- Exact commands used.
+Tasks:
+- Update README checklist status for completed milestones.
+- Add a concise "Track Mapping" section:
+  - Status track evidence
+  - bond.credit evidence
+  - Arkhai Applications evidence
+  - Arkhai Extensions evidence
 
 Success criteria:
-- README contains no placeholder proof hashes for completed actions.
-- Another builder can replay your steps with listed commands.
+- Checklist reflects actual current project state.
+- Each track has at least one concrete proof artifact linked.
 
 ---
 
-### 1:55-2:00 - Submission prep checkpoint
+## 1:55-2:00 - Publish Readiness Gate
+
 Tasks:
-- Final checklist pass for publish readiness.
-- Prepare next session backlog.
+- Final pass before publish:
+  - contracts compiled
+  - tests green
+  - proof links valid
+  - deployment artifacts present
+- Prepare the exact API/update payload notes for final project update/publish step.
 
-Checklist:
-- [ ] Status deploy done
-- [ ] 3+ gasless tx proofs recorded
-- [ ] Arbitrum deploy done
-- [ ] Frontend local smoke test done
-- [ ] README proof section updated
-- [ ] Commit prepared with clear message
+Success criteria:
+- Project is documentation-complete and publish-ready.
+- No unresolved blockers remain for the publish action.
 
-Backlog for next session (after these 2 hours):
-- Replace mocks with live Alkahest/NLA contracts where feasible.
-- Execute live GMX perp trade proof within hackathon window.
-- Add short demo video and attach deployed URL for publish step.
+## Commands to Run in This 2-Hour Window
 
-## Risk Notes (for this 2-hour window)
-- Node version mismatch with Hardhat can cause intermittent issues; if encountered, switch to Node 20 LTS.
-- Keep test size small for GMX until proof txs are confirmed.
-- Do not block on deep refactors in this window; prioritize proof-producing execution.
+```bash
+npm run compile
+npm test
+cat deployments/status-sepolia-deployment.json
+cat deployments/arbitrum-deployment.json
+cat .env.local
+cat frontend/.env.local
+cd frontend && npm run dev
+```
+
+## Risks and Mitigations
+- Risk: Node version warning (Hardhat on Node 25).
+- Mitigation: Continue with current environment for this session; switch to Node 20 LTS before final release branch/tag.
+
+- Risk: Inconsistent env values between root and frontend.
+- Mitigation: Keep frontend contract addresses in frontend/.env.local and verify against deployment JSON each update.
+
+- Risk: Missing proof granularity for judges.
+- Mitigation: Add explicit tx hashes and explorer links for each claimed completed flow.
 
 ## Definition of Done for This Plan
-This 2-hour plan is successful if you finish with:
-1. two deployment JSON artifacts populated,
-2. at least three Status gasless transaction hashes documented,
-3. frontend running locally with deployed addresses, and
-4. README updated with real, verifiable evidence from this session.
+1. README updated with complete Status + Arbitrum proof packs.
+2. Env values aligned and validated.
+3. Frontend smoke-tested and documented.
+4. Submission checklist reflects true completion and is ready for publish.
