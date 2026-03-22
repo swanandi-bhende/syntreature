@@ -1,0 +1,70 @@
+{
+  "name": "Syntreature: Gasless NL Trading Escrow",
+  "description": "An autonomous AI agent that creates natural-language trading demands, locks funds in conditional escrow using Alkahest + natural-language-agreements, deploys everything gaslessly on Status Network Sepolia, executes real live GMX perp trades on Arbitrum, and uses a new AI-evaluated arbiter to release payouts. All actions are signed by ERC-8004 identity. Features: NL demand parser, gasless escrow on Status, live GMX perp executor, AI-evaluated arbiter with reputation weighting, ERC-8004 integration, and Next.js dashboard. Principal protection for yield; only spendable funds move. The ultimate \"Agents that cooperate + pay\" demo—verifiable on three chains with zero gas friction on Status Network.",
+  "problemStatement": "AI agents today lack autonomous commerce capabilities and rely on human intermediation for complex trading workflows. They cannot execute trustless multi-chain transactions, manage escrow, or build verifiable on-chain reputation. Syntreature solves this by enabling agents to: (1) parse natural language trading intent, (2) lock funds in conditional, code-verified escrow, (3) execute live derivatives trades autonomously, (4) submit to AI-powered arbitration for release, and (5) build persistent on-chain credit scores. This enables true agent-to-agent commerce and agent autonomy in DeFi.",
+  "repoURL": "https://github.com/your-username/syntreature",
+  "trackUUIDs": [
+    "877cd61516a14ad9a199bf48defec1c1",
+    "17ddda1d3cd1483aa4cfc45d493ac653",
+    "88e91d848daf4d1bb0d40dec0074f59e"
+  ],
+  "conversationLog": "Collaborative build of fully autonomous verifiable agent commerce demo spanning three chains. Pivoted from yield-treasury concept to multi-chain trading escrow. Key milestones: (1) NL trading demand parser integrated with natural-language-agreements SDK, (2) gasless escrow deployment on Status Sepolia (0 gas txs), (3) live GMX v2 perp executor on Arbitrum with price feeds, (4) new AI-evaluated arbiter primitive extending Alkahest with agent-called fulfillment checks, (5) ERC-8004 credit score integration, (6) Scaffold-ETH 2 frontend for demand creation/monitoring. Core dependencies: Alkahest (escrow + arbiter base), natural-language-agreements (AI oracle), GMX SDK, ERC-8004 registry. Scope: MVP targets all three tracks—Status Network gasless tx proof, bond.credit live GMX trades + credit score, Arkhai escrow extensions. Multi-track strategy enables full stack demo: demandingly verifiable on-chain.",
+  "submissionMetadata": {
+    "agentFramework": "other",
+    "agentFrameworkOther": "ERC-8004 agent identity + Copilot harness + custom NL trading orchestrator using Alkahest + natural-language-agreements",
+    "agentHarness": "copilot",
+    "model": "gpt-5.3-codex",
+    "skills": [
+      "natural-language-intent-parsing",
+      "escrow-contract-interaction",
+      "dex-trade-execution",
+      "ai-arbiter-evaluation",
+      "erc-8004-identity-signing",
+      "multi-chain-orchestration"
+    ],
+    "tools": [
+      "Scaffold-ETH 2",
+      "Hardhat",
+      "Alkahest",
+      "natural-language-agreements",
+      "GMX V2 SDK",
+      "wagmi/viem",
+      "Next.js",
+      "Status Network (Sepolia)",
+      "Arbitrum",
+      "ERC-8004 Registry"
+    ],
+    "helpfulResources": [
+      "https://github.com/arkhai-io/alkahest",
+      "https://github.com/arkhai-io/natural-language-agreements",
+      "https://docs.gmx.io/",
+      "https://docs.status.im/",
+      "https://eips.ethereum.org/EIPS/eip-8004",
+      "https://scaffold.eth.build/"
+    ],
+    "helpfulSkills": [
+      {
+        "name": "natural-language-intent-parsing",
+        "reason": "natural-language-agreements SDK enabled direct conversion of user intent ('Trade long ETH if price > X') to smart contract obligations without custom parsing logic"
+      },
+      {
+        "name": "escrow-contract-interaction",
+        "reason": "Alkahest BaseEscrowObligation + composable arbiters provided verified, audited escrow patterns (Zellic audit) and eliminated custom contract risk"
+      },
+      {
+        "name": "dex-trade-execution",
+        "reason": "GMX V2 SDK integration minimized integration time for live perp execution on Arbitrum—allowed focus on multi-chain orchestration"
+      },
+      {
+        "name": "ai-arbiter-evaluation",
+        "reason": "Custom AIEvaluatedArbiter primitive extends Alkahest to call ERC-8004 agent identity for reputation-weighted fulfillment checks—novel pattern demonstrated for agent-directed escrow release"
+      },
+      {
+        "name": "erc-8004-identity-signing",
+        "reason": "All contract actions signed by registered agent identity created permanent, auditable on-chain record of agent commerce—critical for credit score + reputation accrual"
+      }
+    ],
+    "intention": "continuing",
+    "intentionNotes": "Post-hackathon roadmap: (1) Mainnet deployment on Status smart chain + Arbitrum, (2) Expand NL vocabulary to cover options, perps, and yield strategies, (3) Integrate real price oracles (Chainlink), (4) Credit score bonding for larger positions, (5) UI polish + mobile support, (6) Multi-agent marketplace where agents can discover + counterparty with each other. Strong conviction this becomes foundational layer for agent commerce in web3."
+  }
+}

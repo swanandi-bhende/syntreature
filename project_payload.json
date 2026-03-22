@@ -1,0 +1,20 @@
+{
+  "teamUUID": "7a10fe9fda4d4635b2bca86fdeddf6f9",
+  "name": "Syntreature: Autonomous AI Trading Agent",
+  "description": "An autonomous AI agent (Syntreature) turns natural-language trading intents into gasless escrow contracts on Status, executes real GMX trades on Arbitrum, and manages the full lifecycle without human intervention. It uses an AI-powered arbiter and ERC-8004 identity to verify outcomes, release funds, and build an on-chain credit score—enabling fully trustless, self-executing agent commerce.",
+  "problemStatement": "Today AI agents depend on manual funding and external arbitration for trades. This creates friction, custody risk, and prevents agents from participating in DeFi autonomously. Syntreature solves this by enabling agents to self-execute trustless trades with on-chain verification and building persistent reputation.",
+  "repoURL": "https://github.com/your-username/syntreature",
+  "trackUUIDs": ["bf374c2134344629aaadb5d6e639e840"],
+  "conversationLog": "Initial pivot from yield-based treasury to autonomous trading agent. Focus: trustless execution, on-chain arbitration, agent credit scoring.",
+  "submissionMetadata": {
+    "agentFramework": "other",
+    "agentFrameworkOther": "custom orchestrator",
+    "agentHarness": "copilot",
+    "model": "gpt-5.3-codex",
+    "skills": ["trading-execution", "contract-interaction"],
+    "tools": ["GMX", "Status", "Arbitrum", "hardhat"],
+    "helpfulResources": [],
+    "intention": "continuing",
+    "intentionNotes": "Building full testnet MVP during hackathon, planning production deployment post-hackathon"
+  }
+}

@@ -1,0 +1,83 @@
+Idea:
+Gasless NL Trading Escrow
+Agent Name: Syntreature
+Target Tracks:
+Status Network ($2,000 pool – gasless deploy + txs on Sepolia Testnet, Chain ID 1660990954)
+bond.credit ($1,500 partner + $50 Open Track – live GMX perp trades on Arbitrum during hackathon window + ERC-8004 credit score)
+Arkhai ($900 total – Applications track + Escrow Extensions track using Alkahest + natural-language-agreements as load-bearing core + new AI-evaluated arbiter primitive)
+Built for: Your Synthesis ERC-8004 agent (Copilot harness)
+Goal: One repo that demonstrates fully autonomous, verifiable agent commerce: natural-language demand → gasless escrow on Status → live GMX trade on Arbitrum → AI arbiter release → on-chain credit score.
+Project Overview
+An autonomous AI agent creates natural-language trading demands (e.g., “Lock 0.01 ETH yield and open a long ETH perp on GMX if price > 3200 within 24h”), locks funds in a conditional escrow using Alkahest + natural-language-agreements, deploys everything gaslessly on Status Network, executes real live GMX perp trades on Arbitrum, and uses a new AI-evaluated arbiter to release payouts. All actions are signed by your ERC-8004 identity. Principal (if using yield) stays protected; only spendable funds move.
+This is the ultimate “Agents that cooperate + pay” demo — verifiable on three chains with zero gas friction on Status.
+Objectives & Bounty Alignment
+TrackExact Qualification HitPrize PotentialStatus NetworkGasless deploy + 3+ gasless txs (create demand, lock, release) on Sepolia TestnetFull $2,000 split (or $50 min)bond.creditReal live GMX perp trades (open/close) on Arbitrum during window; ERC-8004 credit score1st ($1,000) or 2nd ($500)Arkhai ApplicationsAlkahest + natural-language-agreements as load-bearing core (NL demand parsing)Best Submission ($450)Arkhai Escrow ExtensionsNew AI-evaluated + reputation-weighted arbiter primitive extending AlkahestBest Extension ($450)Open TrackMeta-judge loves scoped spending + ERC-8004 + multi-chain autonomySlice of $28k
+Key Features (MVP Scope)
+NL Demand Parser (using natural-language-agreements)
+Agent ingests plain English: “Trade long ETH on GMX with 0.01 ETH if price > X in next 24h”
+Converts to Alkahest Demand + Obligation
+Gasless Escrow on Status Network
+Deploy escrow contract gaslessly (gas=0 at protocol level)
+Lock tiny test ETH or simulated yield
+Use Alkahest BaseEscrowObligation + composable arbiters
+Live GMX Perp Executor (bond.credit requirement)
+Agent opens/closes real GMX v2 positions on Arbitrum (small size, e.g., 0.001 ETH notional)
+Based on NL conditions + on-chain price feed
+New AI-Evaluated Arbiter (Arkhai extension)
+Custom arbiter contract that calls your ERC-8004 agent (or off-chain AI oracle) to evaluate fulfillment
+Reputation-weighted (uses your agent’s on-chain score)
+Releases escrow automatically when conditions met
+ERC-8004 Integration
+All signatures, receipts, and credit score updates tied to your agent identity
+Frontend/Dashboard
+Simple Scaffold-ETH 2 Next.js page to create/view demands + live trade status
+Alerts & Receipts
+on-chain structured logs (agent.json style)
+Technical Architecture
+Framework: Scaffold-ETH 2 (hardhat + Next.js + wagmi/viem)
+Multi-chain hardhat.config:
+Status Sepolia: RPC https://public.sepolia.rpc.status.network, Chain ID 1660990954, Explorer https://sepoliascan.status.network
+Arbitrum (for GMX): Standard Arbitrum RPC
+Core Dependencies (load-bearing):
+Alkahest: https://github.com/arkhai-io/alkahest (Escrow + Arbiter base contracts)
+natural-language-agreements: https://github.com/arkhai-io/natural-language-agreements (AI oracle integration)
+alkahest-ts SDK: https://github.com/arkhai-io/alkahest-ts
+GMX v2 SDK/contracts (Arbitrum mainnet or testnet if needed)
+ERC-8004 registry (your registered identity)
+Contracts (3 main):
+NLTradingEscrow.sol (inherits Alkahest)
+AIEvaluatedArbiter.sol (new primitive – calls agent or oracle)
+GMX position manager wrapper
+Agent Logic: Your Copilot agent reads NL input → creates demand → triggers gasless txs → executes GMX trades → monitors for arbitration
+User/Agent Flows
+Human/agent inputs NL demand in frontend.
+Agent parses → creates Alkahest demand → deploys/locks gaslessly on Status (proof: tx hash).
+Funds locked → agent opens live GMX perp on Arbitrum (proof: GMX tx hash).
+Condition met or time expires → AI arbiter evaluates → releases payout gaslessly.
+All events logged to ERC-8004 → bond.credit reads for credit score.
+Non-Functional Requirements
+Security: Follow ethskills.com/security + Alkahest audited patterns (Zellic audit passed). No admin keys post-deploy. Yield-style principal protection if extended.
+Gas: All Status actions = 0 gas.
+Testing: Hardhat tests + fork testing on Status/Arbitrum.
+README: Include all tx hashes, contract addresses, deploy commands, Arkhai/GitHub links, and “How it hits every bounty”.
+Deliverables
+Full Scaffold-ETH 2 repo (GitHub)
+Deployed contracts on Status + Arbitrum
+3+ gasless tx proofs
+Live GMX trade txs
+Working frontend
+README 
+Automatic submission via your Synthesis agent
+
+I'm registered for Synthesis with my ERC-8004 identity. Read ethskills.com/SKILL.md + https://github.com/arkhai-io/alkahest + https://github.com/arkhai-io/natural-language-agreements + https://github.com/arkhai-io/alkahest-ts first.
+
+Build the complete "Gasless NL Trading Escrow" project exactly as per this PRD:
+- Scaffold-ETH 2 with hardhat.config for Status Sepolia (RPC: https://public.sepolia.rpc.status.network, Chain ID: 1660990954) + Arbitrum
+- Use Alkahest + natural-language-agreements as load-bearing core
+- Implement new AI-evaluated + ERC-8004 reputation arbiter
+- Gasless deploy + 3+ gasless txs on Status
+- Real live GMX perp trading on Arbitrum
+- Full frontend, tests, deployment scripts, README with all proofs
+- Target all three tracks + Open Track
+
+Generate the entire repo structure now.
