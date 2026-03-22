@@ -5,6 +5,12 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC8004} from "../interfaces/IAlkahest.sol";
 
+interface ITrustedEscrowExecution {
+    function releaseFundsByArbiter(uint256 caseOrDemandId) external;
+
+    function clawbackByArbiter(uint256 caseOrDemandId) external;
+}
+
 /**
  * @title AIEvaluatedArbiter
  * @dev New Alkahest arbiter primitive that evaluates conditions using AI oracle
@@ -68,6 +74,7 @@ contract AIEvaluatedArbiter is Ownable {
     mapping(uint256 => ArbitrationCase) private cases;
     mapping(address => AgentReputation) public agentReputation;
     mapping(address => uint256[]) public agentCases;
+    mapping(address => bool) public trustedEscrow;
 
     // Events
     event ArbitrationRequested(
@@ -80,6 +87,15 @@ contract AIEvaluatedArbiter is Ownable {
     event ArbitrationResolved(uint256 indexed caseId, address indexed agent, uint256 payoutAmount);
     event ArbitrationExecuted(uint256 indexed caseId, bool shouldRelease, uint256 executedAt);
     event ArbitrationCancelled(uint256 indexed caseId, address indexed cancelledBy, uint256 cancelledAt);
+    event TrustedEscrowSet(address indexed escrow, bool isTrusted);
+    event ArbitrationTerminalAction(
+        uint256 indexed caseId,
+        address indexed escrowAddress,
+        bytes32 action,
+        address indexed caller,
+        bytes32 proofHash,
+        uint256 reputationWeightUsed
+    );
     event ReputationUpdated(address indexed agent, uint256 creditScore);
 
     // Modifiers
@@ -121,25 +137,26 @@ contract AIEvaluatedArbiter is Ownable {
     ) external onlyValidAgent(agentId) returns (uint256) {
         require(escrow != address(0), "Invalid escrow");
         require(agent != address(0), "Invalid agent");
+        require(trustedEscrow[escrow], "Escrow not trusted");
 
         uint256 caseId = caseCounter++;
 
         ArbitrationCase storage arbitrationCase = cases[caseId];
         arbitrationCase.caseId = caseId;
-    arbitrationCase.escrowAddress = escrow;
-    arbitrationCase.demandOrObligationId = obligationId;
+        arbitrationCase.escrowAddress = escrow;
+        arbitrationCase.demandOrObligationId = obligationId;
         arbitrationCase.obligationId = obligationId;
         arbitrationCase.agent = agent;
         arbitrationCase.agentId = agentId;
-    arbitrationCase.evaluator = address(0);
+        arbitrationCase.evaluator = address(0);
         arbitrationCase.nlCondition = nlCondition;
-    arbitrationCase.lifecycle = CaseLifecycle.Requested;
-    arbitrationCase.executed = false;
-    arbitrationCase.requestedAt = block.timestamp;
-    arbitrationCase.evaluatedAt = 0;
-    arbitrationCase.executedAt = 0;
+        arbitrationCase.lifecycle = CaseLifecycle.Requested;
+        arbitrationCase.executed = false;
+        arbitrationCase.requestedAt = block.timestamp;
+        arbitrationCase.evaluatedAt = 0;
+        arbitrationCase.executedAt = 0;
         arbitrationCase.createdAt = block.timestamp;
-    arbitrationCase.resolvedAt = 0;
+        arbitrationCase.resolvedAt = 0;
         arbitrationCase.resolved = false;
 
         agentCases[agent].push(caseId);
@@ -195,15 +212,35 @@ contract AIEvaluatedArbiter is Ownable {
         require(!arbitrationCase.executed, "Already executed");
         require(arbitrationCase.lifecycle == CaseLifecycle.Evaluated, "Invalid lifecycle");
         require(msg.sender == arbitrationCase.escrowAddress || msg.sender == oracleAddress, "Not authorized");
+        require(trustedEscrow[arbitrationCase.escrowAddress], "Escrow not trusted");
 
-        // Execute release or clawback on the escrow
+        bytes32 proofHash = keccak256(arbitrationCase.evaluationProof);
+        uint256 reputationWeightUsed = agentReputation[arbitrationCase.agent].creditScore;
+
+        ITrustedEscrowExecution escrow = ITrustedEscrowExecution(arbitrationCase.escrowAddress);
+
         if (arbitrationCase.shouldRelease) {
-            // Call escrow's releaseFunds(obligationId)
-            // This requires the escrow to have a function that trusts the arbiter
-            // For now, emit event - integration with escrow happens at escrow level
+            escrow.releaseFundsByArbiter(arbitrationCase.demandOrObligationId);
             arbitrationCase.lifecycle = CaseLifecycle.ExecutedRelease;
+            emit ArbitrationTerminalAction(
+                caseId,
+                arbitrationCase.escrowAddress,
+                keccak256("release"),
+                msg.sender,
+                proofHash,
+                reputationWeightUsed
+            );
         } else {
+            escrow.clawbackByArbiter(arbitrationCase.demandOrObligationId);
             arbitrationCase.lifecycle = CaseLifecycle.ExecutedClawback;
+            emit ArbitrationTerminalAction(
+                caseId,
+                arbitrationCase.escrowAddress,
+                keccak256("clawback"),
+                msg.sender,
+                proofHash,
+                reputationWeightUsed
+            );
         }
 
         arbitrationCase.executed = true;
@@ -304,6 +341,12 @@ contract AIEvaluatedArbiter is Ownable {
      */
     function setOracleAddress(address _oracle) external onlyOwner {
         oracleAddress = _oracle;
+    }
+
+    function setTrustedEscrow(address escrow, bool isTrusted) external onlyOwner {
+        require(escrow != address(0), "Invalid escrow");
+        trustedEscrow[escrow] = isTrusted;
+        emit TrustedEscrowSet(escrow, isTrusted);
     }
 
     // Utility functions

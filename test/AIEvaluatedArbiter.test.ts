@@ -6,6 +6,7 @@ const { ethers } = hre as any;
 describe("AIEvaluatedArbiter", function () {
   let arbiter: any;
   let erc8004: any;
+  let trustedEscrow: any;
   let owner: any;
   let agent: any;
   let oracle: any;
@@ -26,6 +27,12 @@ describe("AIEvaluatedArbiter", function () {
     );
     await arbiter.waitForDeployment();
 
+    const MockTrustedEscrow = await ethers.getContractFactory("MockTrustedEscrow");
+    trustedEscrow = await MockTrustedEscrow.deploy();
+    await trustedEscrow.waitForDeployment();
+
+    await arbiter.setTrustedEscrow(await trustedEscrow.getAddress(), true);
+
     // Register agent
     await erc8004.registerAgent(1, agent.address, "Test Agent");
   });
@@ -33,7 +40,7 @@ describe("AIEvaluatedArbiter", function () {
   describe("Arbitration Request", function () {
     it("should request arbitration for trade condition", async function () {
       const tx = await arbiter.connect(agent).requestArbitration(
-        owner.address,
+        await trustedEscrow.getAddress(),
         0, // dummy obligation
         agent.address,
         1, // agentId
@@ -51,7 +58,7 @@ describe("AIEvaluatedArbiter", function () {
       let reverted = false;
       try {
         await arbiter.connect(agent).requestArbitration(
-          owner.address,
+          await trustedEscrow.getAddress(),
           0,
           agent.address,
           999, // Invalid agent ID
@@ -68,7 +75,7 @@ describe("AIEvaluatedArbiter", function () {
     it("should evaluate condition and update reputation", async function () {
       // Request arbitration
       await arbiter.connect(agent).requestArbitration(
-        owner.address,
+        await trustedEscrow.getAddress(),
         0,
         agent.address,
         1,
@@ -91,7 +98,7 @@ describe("AIEvaluatedArbiter", function () {
     it("should update agent reputation on success", async function () {
       // Request and evaluate
       await arbiter.connect(agent).requestArbitration(
-        owner.address,
+        await trustedEscrow.getAddress(),
         1,
         agent.address,
         1,
@@ -114,7 +121,7 @@ describe("AIEvaluatedArbiter", function () {
     it("should penalize reputation on failure", async function () {
       // Request and evaluate
       await arbiter.connect(agent).requestArbitration(
-        owner.address,
+        await trustedEscrow.getAddress(),
         2,
         agent.address,
         1,
@@ -146,6 +153,68 @@ describe("AIEvaluatedArbiter", function () {
       await arbiter.setMinimumCreditScore(600);
       const isQualified = await arbiter.isAgentQualified(agent.address);
       expect(isQualified).to.equal(false);
+    });
+  });
+
+  describe("Trusted Escrow Execution", function () {
+    it("should execute release through trusted escrow", async function () {
+      const caseId = await arbiter.connect(agent).requestArbitration.staticCall(
+        await trustedEscrow.getAddress(),
+        11,
+        agent.address,
+        1,
+        "Release path condition"
+      );
+
+      await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        11,
+        agent.address,
+        1,
+        "Release path condition"
+      );
+
+      await arbiter
+        .connect(oracle)
+        .evaluateCondition(caseId, true, ethers.id("release-proof"));
+
+      await arbiter.connect(oracle).executeArbitration(caseId);
+
+      const arbitrationCase = await arbiter.getCase(caseId);
+      expect(arbitrationCase.executed).to.equal(true);
+      expect(arbitrationCase.lifecycle).to.equal(2n); // ExecutedRelease
+      expect(await trustedEscrow.releaseCalled()).to.equal(true);
+      expect(await trustedEscrow.lastCaseOrDemandId()).to.equal(11n);
+    });
+
+    it("should execute clawback through trusted escrow", async function () {
+      const caseId = await arbiter.connect(agent).requestArbitration.staticCall(
+        await trustedEscrow.getAddress(),
+        12,
+        agent.address,
+        1,
+        "Clawback path condition"
+      );
+
+      await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        12,
+        agent.address,
+        1,
+        "Clawback path condition"
+      );
+
+      await arbiter
+        .connect(oracle)
+        .evaluateCondition(caseId, false, ethers.id("clawback-proof"));
+
+      await arbiter.connect(oracle).executeArbitration(caseId);
+
+      const arbitrationCase = await arbiter.getCase(caseId);
+      expect(arbitrationCase.executed).to.equal(true);
+      expect(arbitrationCase.lifecycle).to.equal(3n); // ExecutedClawback
+      expect(await trustedEscrow.clawbackCalled()).to.equal(true);
+      expect(await trustedEscrow.lastCaseOrDemandId()).to.equal(12n);
     });
   });
 });
