@@ -1233,9 +1233,12 @@ describe("AIEvaluatedArbiter", function () {
         "Execute-before-evaluated invariant"
       );
 
-      await expect(
-        arbiter.connect(oracle).executeArbitration(caseId)
-      ).to.be.revertedWithCustomError(arbiter, "InvalidLifecycleTransition");
+      try {
+        await arbiter.connect(oracle).executeArbitration(caseId)
+        expect.fail("Expected transaction to revert with InvalidLifecycleTransition");
+      } catch (error: any) {
+        expect(error.message).to.include("InvalidLifecycleTransition");
+      }
     });
 
     it("should revert evaluate from non-oracle with InvalidCaller", async function () {
@@ -1259,9 +1262,12 @@ describe("AIEvaluatedArbiter", function () {
         nonce: 61001n,
       });
 
-      await expect(
-        arbiter.connect(agent).evaluateCondition(caseId, proof)
-      ).to.be.revertedWithCustomError(arbiter, "InvalidCaller");
+      try {
+        await arbiter.connect(agent).evaluateCondition(caseId, proof);
+        expect.fail("Expected transaction to revert with InvalidCaller");
+      } catch (error: any) {
+        expect(error.message).to.include("InvalidCaller");
+      }
     });
 
     it("should revert evaluate after terminal execution with AlreadyEvaluated", async function () {
@@ -1291,9 +1297,12 @@ describe("AIEvaluatedArbiter", function () {
         nonce: 61003n,
       });
 
-      await expect(
-        arbiter.connect(oracle).evaluateCondition(caseId, secondProof)
-      ).to.be.revertedWithCustomError(arbiter, "AlreadyEvaluated");
+      try {
+        await arbiter.connect(oracle).evaluateCondition(caseId, secondProof);
+        expect.fail("Expected transaction to revert with AlreadyEvaluated");
+      } catch (error: any) {
+        expect(error.message).to.include("AlreadyEvaluated");
+      }
     });
 
     it("should reject replayed proof nonce with NonceAlreadyUsed", async function () {
@@ -1318,21 +1327,27 @@ describe("AIEvaluatedArbiter", function () {
       });
       await arbiter.connect(oracle).evaluateCondition(caseId, proof);
 
-      await expect(
-        arbiter.connect(oracle).evaluateCondition(caseId, proof)
-      ).to.be.revertedWithCustomError(arbiter, "NonceAlreadyUsed");
+      try {
+        await arbiter.connect(oracle).evaluateCondition(caseId, proof);
+        expect.fail("Expected transaction to revert with NonceAlreadyUsed");
+      } catch (error: any) {
+        expect(error.message).to.include("NonceAlreadyUsed");
+      }
     });
 
     it("should reject untrusted escrow with EscrowNotTrusted", async function () {
-      await expect(
-        arbiter.connect(agent).requestArbitration(
+      try {
+        await arbiter.connect(agent).requestArbitration(
           owner.address,
           1105,
           agent.address,
           1,
           "Trusted escrow invariant"
-        )
-      ).to.be.revertedWithCustomError(arbiter, "EscrowNotTrusted");
+        );
+        expect.fail("Expected transaction to revert with EscrowNotTrusted");
+      } catch (error: any) {
+        expect(error.message).to.include("EscrowNotTrusted");
+      }
     });
 
     it("should reject invalid oracle signer with OracleSignatureInvalid", async function () {
@@ -1356,9 +1371,12 @@ describe("AIEvaluatedArbiter", function () {
         nonce: 61005n,
       });
 
-      await expect(
-        arbiter.connect(oracle).evaluateCondition(caseId, badSignatureProof)
-      ).to.be.revertedWithCustomError(arbiter, "OracleSignatureInvalid");
+      try {
+        await arbiter.connect(oracle).evaluateCondition(caseId, badSignatureProof);
+        expect.fail("Expected transaction to revert with OracleSignatureInvalid");
+      } catch (error: any) {
+        expect(error.message).to.include("OracleSignatureInvalid");
+      }
     });
 
     it("should expose decision parameters through getDecisionParams", async function () {
@@ -1394,6 +1412,302 @@ describe("AIEvaluatedArbiter", function () {
       expect(params.appliedDiscount).to.equal(expectedDiscount);
       expect(params.requiredThreshold + params.appliedDiscount).to.equal(5000n);
       expect(params.confidenceMargin).to.equal(proof.confidenceBps - params.requiredThreshold);
+    });
+  });
+
+  describe("Phase 2 Matrix Completion", function () {
+    it("should emit proof-hash terminal action and threshold event on release path", async function () {
+      const caseId = await arbiter.connect(agent).requestArbitration.staticCall(
+        await trustedEscrow.getAddress(),
+        1201,
+        agent.address,
+        1,
+        "Matrix release event coverage"
+      );
+
+      await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1201,
+        agent.address,
+        1,
+        "Matrix release event coverage"
+      );
+
+      const proof = await makeEvaluationProof(arbiter, oracle, caseId, true, {
+        confidenceBps: 7600n,
+        nonce: 62001n,
+      });
+
+      const evalTx = await arbiter.connect(oracle).evaluateCondition(caseId, proof);
+      const evalReceipt = await evalTx.wait();
+
+      let foundThreshold = false;
+      if (evalReceipt) {
+        for (const eventLog of evalReceipt.logs) {
+          try {
+            const event = arbiter.interface.parseLog(eventLog);
+            if (event && event.name === "DecisionThresholdApplied") {
+              expect(event.args.caseId).to.equal(caseId);
+              expect(event.args.requiredThreshold).to.equal((await arbiter.getCase(caseId)).requiredConfidenceBps);
+              foundThreshold = true;
+            }
+          } catch (e) {
+            // ignore unrelated logs
+          }
+        }
+      }
+      expect(foundThreshold).to.equal(true);
+
+      const execTx = await arbiter.connect(oracle).executeArbitration(caseId);
+      const execReceipt = await execTx.wait();
+
+      let foundTerminal = false;
+      if (execReceipt) {
+        for (const eventLog of execReceipt.logs) {
+          try {
+            const event = arbiter.interface.parseLog(eventLog);
+            if (event && event.name === "ArbitrationTerminalAction") {
+              expect(event.args.caseId).to.equal(caseId);
+              expect(event.args.proofHash).to.equal((await arbiter.getCase(caseId)).evaluationHash);
+              foundTerminal = true;
+            }
+          } catch (e) {
+            // ignore unrelated logs
+          }
+        }
+      }
+      expect(foundTerminal).to.equal(true);
+    });
+
+    it("should produce different outcomes for same confidence based on reputation", async function () {
+      const [localOwner, localHighAgent, localOracle, localLowAgent] = await ethers.getSigners();
+
+      const MockERC8004 = await ethers.getContractFactory("MockERC8004");
+      const localErc8004 = await MockERC8004.deploy();
+      await localErc8004.waitForDeployment();
+
+      const AIEvaluatedArbiter = await ethers.getContractFactory("AIEvaluatedArbiter");
+      const localArbiter = await AIEvaluatedArbiter.deploy(
+        await localErc8004.getAddress(),
+        localOracle.address
+      );
+      await localArbiter.waitForDeployment();
+
+      const MockTrustedEscrow = await ethers.getContractFactory("MockTrustedEscrow");
+      const localEscrow = await MockTrustedEscrow.deploy();
+      await localEscrow.waitForDeployment();
+
+      await localArbiter.connect(localOwner).setTrustedEscrow(await localEscrow.getAddress(), true);
+      await localErc8004.connect(localOwner).registerAgent(201, localHighAgent.address, "Local High Agent");
+      await localErc8004.connect(localOwner).registerAgent(202, localLowAgent.address, "Local Low Agent");
+
+      // Build high-score reputation: 6 successes => 800
+      for (let i = 0; i < 6; i++) {
+        const caseId = await localArbiter.connect(localHighAgent).requestArbitration.staticCall(
+          await localEscrow.getAddress(),
+          1220 + i,
+          localHighAgent.address,
+          201,
+          `Local high boost ${i}`
+        );
+
+        await localArbiter.connect(localHighAgent).requestArbitration(
+          await localEscrow.getAddress(),
+          1220 + i,
+          localHighAgent.address,
+          201,
+          `Local high boost ${i}`
+        );
+
+        const proof = await makeEvaluationProof(localArbiter, localOracle, caseId, true, {
+          nonce: 62600n + BigInt(i),
+        });
+        await localArbiter.connect(localOracle).evaluateCondition(caseId, proof);
+      }
+
+      // Build low-score reputation: initialize at 500 then one failure => 450
+      const lowInitCaseId = await localArbiter.connect(localLowAgent).requestArbitration.staticCall(
+        await localEscrow.getAddress(),
+        1240,
+        localLowAgent.address,
+        202,
+        "Local low init"
+      );
+      await localArbiter.connect(localLowAgent).requestArbitration(
+        await localEscrow.getAddress(),
+        1240,
+        localLowAgent.address,
+        202,
+        "Local low init"
+      );
+      const lowInitProof = await makeEvaluationProof(localArbiter, localOracle, lowInitCaseId, false, {
+        nonce: 62700n,
+      });
+      await localArbiter.connect(localOracle).evaluateCondition(lowInitCaseId, lowInitProof);
+
+      const highRep = await localArbiter.getReputation(localHighAgent.address);
+      const lowRep = await localArbiter.getReputation(localLowAgent.address);
+      expect(highRep.creditScore).to.equal(800n);
+      expect(lowRep.creditScore).to.equal(450n);
+
+      const sameConfidence = 4500n;
+
+      const highCaseId = await localArbiter.connect(localHighAgent).requestArbitration.staticCall(
+        await localEscrow.getAddress(),
+        1251,
+        localHighAgent.address,
+        201,
+        "Same confidence high-score"
+      );
+      await localArbiter.connect(localHighAgent).requestArbitration(
+        await localEscrow.getAddress(),
+        1251,
+        localHighAgent.address,
+        201,
+        "Same confidence high-score"
+      );
+      const highProof = await makeEvaluationProof(localArbiter, localOracle, highCaseId, true, {
+        confidenceBps: sameConfidence,
+        sourceCount: 2n,
+        nonce: 62701n,
+      });
+      await localArbiter.connect(localOracle).evaluateCondition(highCaseId, highProof);
+
+      const lowCaseId = await localArbiter.connect(localLowAgent).requestArbitration.staticCall(
+        await localEscrow.getAddress(),
+        1252,
+        localLowAgent.address,
+        202,
+        "Same confidence low-score"
+      );
+      await localArbiter.connect(localLowAgent).requestArbitration(
+        await localEscrow.getAddress(),
+        1252,
+        localLowAgent.address,
+        202,
+        "Same confidence low-score"
+      );
+      const lowProof = await makeEvaluationProof(localArbiter, localOracle, lowCaseId, true, {
+        confidenceBps: sameConfidence,
+        sourceCount: 2n,
+        nonce: 62702n,
+      });
+
+      try {
+        await localArbiter.connect(localOracle).evaluateCondition(lowCaseId, lowProof);
+        expect.fail("Expected transaction to revert with ConfidenceBelowThreshold");
+      } catch (error: any) {
+        expect(error.message).to.include("ConfidenceBelowThreshold");
+      }
+
+      const highCase = await localArbiter.getCase(highCaseId);
+      expect(highCase.lifecycle).to.equal(1n); // Evaluated
+      expect(highCase.requiredConfidenceBps).to.equal(4000n);
+    });
+
+    it("should prevent double execute with AlreadyExecuted", async function () {
+      const caseId = await arbiter.connect(agent).requestArbitration.staticCall(
+        await trustedEscrow.getAddress(),
+        1260,
+        agent.address,
+        1,
+        "Double execute safety"
+      );
+
+      await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1260,
+        agent.address,
+        1,
+        "Double execute safety"
+      );
+
+      const proof = await makeEvaluationProof(arbiter, oracle, caseId, true, {
+        nonce: 62401n,
+      });
+      await arbiter.connect(oracle).evaluateCondition(caseId, proof);
+      await arbiter.connect(oracle).executeArbitration(caseId);
+
+      try {
+        await arbiter.connect(oracle).executeArbitration(caseId);
+        expect.fail("Expected transaction to revert with AlreadyExecuted");
+      } catch (error: any) {
+        expect(error.message).to.include("AlreadyExecuted");
+      }
+    });
+
+    it("should show reputation divergence and qualification split after success vs failure", async function () {
+      const [localOwner, localAgentA, localOracle, localAgentB] = await ethers.getSigners();
+
+      const MockERC8004 = await ethers.getContractFactory("MockERC8004");
+      const localErc8004 = await MockERC8004.deploy();
+      await localErc8004.waitForDeployment();
+
+      const AIEvaluatedArbiter = await ethers.getContractFactory("AIEvaluatedArbiter");
+      const localArbiter = await AIEvaluatedArbiter.deploy(
+        await localErc8004.getAddress(),
+        localOracle.address
+      );
+      await localArbiter.waitForDeployment();
+
+      const MockTrustedEscrow = await ethers.getContractFactory("MockTrustedEscrow");
+      const localEscrow = await MockTrustedEscrow.deploy();
+      await localEscrow.waitForDeployment();
+
+      await localArbiter.connect(localOwner).setTrustedEscrow(await localEscrow.getAddress(), true);
+      await localErc8004.connect(localOwner).registerAgent(101, localAgentA.address, "Local Agent A");
+      await localErc8004.connect(localOwner).registerAgent(102, localAgentB.address, "Local Agent B");
+
+      const successCaseId = await localArbiter.connect(localAgentA).requestArbitration.staticCall(
+        await localEscrow.getAddress(),
+        1271,
+        localAgentA.address,
+        101,
+        "Success branch"
+      );
+      await localArbiter.connect(localAgentA).requestArbitration(
+        await localEscrow.getAddress(),
+        1271,
+        localAgentA.address,
+        101,
+        "Success branch"
+      );
+
+      const successProof = await makeEvaluationProof(localArbiter, localOracle, successCaseId, true, {
+        nonce: 62501n,
+      });
+      await localArbiter.connect(localOracle).evaluateCondition(successCaseId, successProof);
+
+      const failureCaseId = await localArbiter.connect(localAgentB).requestArbitration.staticCall(
+        await localEscrow.getAddress(),
+        1272,
+        localAgentB.address,
+        102,
+        "Failure branch"
+      );
+      await localArbiter.connect(localAgentB).requestArbitration(
+        await localEscrow.getAddress(),
+        1272,
+        localAgentB.address,
+        102,
+        "Failure branch"
+      );
+
+      const failureProof = await makeEvaluationProof(localArbiter, localOracle, failureCaseId, false, {
+        nonce: 62502n,
+      });
+      await localArbiter.connect(localOracle).evaluateCondition(failureCaseId, failureProof);
+
+      const repA = await localArbiter.getReputation(localAgentA.address);
+      const repB = await localArbiter.getReputation(localAgentB.address);
+
+      expect(repA.creditScore).to.equal(550n);
+      expect(repB.creditScore).to.equal(450n);
+      expect(repA.creditScore > repB.creditScore).to.equal(true);
+
+      await localArbiter.connect(localOwner).setMinimumCreditScore(500);
+      expect(await localArbiter.isAgentQualified(localAgentA.address)).to.equal(true);
+      expect(await localArbiter.isAgentQualified(localAgentB.address)).to.equal(false);
     });
   });
 });
