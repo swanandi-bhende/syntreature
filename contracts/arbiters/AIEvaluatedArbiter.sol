@@ -12,6 +12,23 @@ interface ITrustedEscrowExecution {
     function clawbackByArbiter(uint256 caseOrDemandId) external;
 }
 
+// ============ Custom Errors (for audit clarity) ============
+error AlreadyEvaluated();
+error AlreadyExecuted();
+error InvalidLifecycleTransition();
+error ProofNotValid();
+error NonceAlreadyUsed();
+error EscrowNotTrusted();
+error OracleSignatureInvalid();
+error InvalidCase();
+error ConfidenceBelowThreshold();
+error InsufficientEvidence();
+error ProofTooOld();
+error NotAuthorized();
+error InvalidEscrow();
+error InvalidAgent();
+error InvalidCaller();
+
 /**
  * @title AIEvaluatedArbiter
  * @dev New Alkahest arbiter primitive that evaluates conditions using AI oracle
@@ -43,6 +60,15 @@ contract AIEvaluatedArbiter is Ownable {
         ExecutedRelease,
         ExecutedClawback,
         Cancelled
+    }
+
+    // Cancel reason codes for emergency path
+    enum CancelReason {
+        NoReason,
+        OwnerEmergency,
+        InvalidProof,
+        SecurityViolation,
+        ProtocolViolation
     }
 
     // Structs
@@ -77,6 +103,11 @@ contract AIEvaluatedArbiter is Ownable {
         uint256 confidenceMarginBps; // Actual confidence minus required threshold
         uint256 agentScoreAtEvaluation; // Agent's credit score when evaluated
         uint256 applyingReputationDiscount; // Discount applied to threshold (bps)
+        // Emergency cancellation fields
+        bool isCancelled;
+        CancelReason cancelReason;
+        address cancelledBy;
+        uint256 cancelledAt;
     }
 
     struct EvaluationProof {
@@ -169,6 +200,29 @@ contract AIEvaluatedArbiter is Ownable {
         uint256 requiredWaitSeconds
     );
 
+    // Events refactored for phase 5 clarity
+    event CaseEvaluated(
+        uint256 indexed caseId,
+        uint256 evaluatedAt,
+        bytes32 evaluationHash,
+        uint256 requiredThreshold,
+        uint256 confidenceMargin
+    );
+    
+    event CaseExecuted(
+        uint256 indexed caseId,
+        bool shouldRelease,
+        uint256 executedAt,
+        bytes32 action
+    );
+
+    event CaseCancelled(
+        uint256 indexed caseId,
+        CancelReason reason,
+        address cancelledBy,
+        uint256 cancelledAt
+    );
+
     // Modifiers
     modifier onlyValidAgent(uint256 agentId) {
         IERC8004 erc8004 = IERC8004(erc8004Address);
@@ -254,14 +308,14 @@ contract AIEvaluatedArbiter is Ownable {
      */
     function evaluateCondition(uint256 caseId, EvaluationProof calldata proof) external onlyOracle {
         ArbitrationCase storage arbitrationCase = cases[caseId];
-        require(!arbitrationCase.resolved, "Already resolved");
-        require(arbitrationCase.escrowAddress != address(0), "Invalid case");
-        require(arbitrationCase.lifecycle == CaseLifecycle.Requested, "Invalid lifecycle");
-        require(proof.caseId == caseId, "Case mismatch");
-        require(proof.issuedAt <= block.timestamp, "Proof not yet valid");
-        require(proof.expiresAt >= block.timestamp, "Proof expired");
-        require(proof.sourceCount > 0, "Missing evidence sources");
-        require(proof.confidenceBps <= 10_000, "Invalid confidence");
+        if (arbitrationCase.resolved) revert AlreadyEvaluated();
+        if (arbitrationCase.escrowAddress == address(0)) revert InvalidCase();
+        if (arbitrationCase.lifecycle != CaseLifecycle.Requested) revert InvalidLifecycleTransition();
+        if (proof.caseId != caseId) revert ProofNotValid();
+        if (proof.issuedAt > block.timestamp) revert ProofNotValid();
+        if (proof.expiresAt < block.timestamp) revert ProofNotValid();
+        if (proof.sourceCount == 0) revert InsufficientEvidence();
+        if (proof.confidenceBps > 10_000) revert ProofNotValid();
 
         // Get agent's current reputation score
         uint256 agentScore;
@@ -278,20 +332,20 @@ contract AIEvaluatedArbiter is Ownable {
 
         // Low-score agents require additional evidence constraints
         if (agentScore < midScoreThreshold) {
-            require(proof.sourceCount >= lowScoreMinEvidenceSources, "Low-score agent: insufficient evidence sources");
+            if (proof.sourceCount < lowScoreMinEvidenceSources) revert InsufficientEvidence();
             uint256 proofAge = block.timestamp - proof.issuedAt;
-            require(proofAge <= lowScoreProofWindowSeconds, "Low-score agent: proof too old");
+            if (proofAge > lowScoreProofWindowSeconds) revert ProofTooOld();
         }
 
         // Check confidence meets reputation-adjusted threshold
-        require(proof.confidenceBps >= requiredThreshold, "Confidence below required threshold");
+        if (proof.confidenceBps < requiredThreshold) revert ConfidenceBelowThreshold();
 
         bytes32 nonceKey = keccak256(abi.encodePacked(caseId, proof.nonce));
-        require(!usedProofNonces[nonceKey], "Nonce already used");
+        if (usedProofNonces[nonceKey]) revert NonceAlreadyUsed();
 
         bytes32 digest = hashEvaluationProof(proof);
         address signer = digest.recover(proof.signature);
-        require(signer == oracleAddress, "Invalid proof signature");
+        if (signer != oracleAddress) revert OracleSignatureInvalid();
 
         usedProofNonces[nonceKey] = true;
 
@@ -328,6 +382,13 @@ contract AIEvaluatedArbiter is Ownable {
             requiredThreshold,
             confidenceMargin
         );
+        emit CaseEvaluated(
+            caseId,
+            block.timestamp,
+            digest,
+            requiredThreshold,
+            confidenceMargin
+        );
         emit ConditionEvaluated(caseId, proof.shouldRelease, abi.encodePacked(digest));
         emit EvaluationProofStored(
             caseId,
@@ -340,18 +401,17 @@ contract AIEvaluatedArbiter is Ownable {
 
     /**
      * @dev Execute arbitration decision (release or clawback)
-     * Called by escrow or oracle to finalize the arbitration
-     *
-     * Enforces execution cooldown for low-score agents:
-     * Agents below riskThreshold must wait lowScoreCooldownSeconds between executions
+     * Performs escrow call and terminal transition.
+     * Only callable after case has been evaluated.
+     * Terminal action: cannot be called twice.
      */
     function executeArbitration(uint256 caseId) external {
         ArbitrationCase storage arbitrationCase = cases[caseId];
-        require(arbitrationCase.resolved, "Not evaluated yet");
-        require(!arbitrationCase.executed, "Already executed");
-        require(arbitrationCase.lifecycle == CaseLifecycle.Evaluated, "Invalid lifecycle");
-        require(msg.sender == arbitrationCase.escrowAddress || msg.sender == oracleAddress, "Not authorized");
-        require(trustedEscrow[arbitrationCase.escrowAddress], "Escrow not trusted");
+        if (!arbitrationCase.resolved) revert InvalidLifecycleTransition();
+        if (arbitrationCase.executed) revert AlreadyExecuted();
+        if (arbitrationCase.lifecycle != CaseLifecycle.Evaluated) revert InvalidLifecycleTransition();
+        if (msg.sender != arbitrationCase.escrowAddress && msg.sender != oracleAddress) revert NotAuthorized();
+        if (!trustedEscrow[arbitrationCase.escrowAddress]) revert EscrowNotTrusted();
 
         // Enforce execution cooldown for low-score agents
         uint256 agentScore = arbitrationCase.agentScoreAtEvaluation;
@@ -359,10 +419,7 @@ contract AIEvaluatedArbiter is Ownable {
             uint256 timeSinceLastExecution = block.timestamp - lastExecutionTimes[arbitrationCase.agent];
             if (lastExecutionTimes[arbitrationCase.agent] > 0) {
                 // Agent has executed before; check cooldown
-                require(
-                    timeSinceLastExecution >= lowScoreCooldownSeconds,
-                    "Execution cooldown: low-score agent must wait"
-                );
+                if (timeSinceLastExecution < lowScoreCooldownSeconds) revert InvalidLifecycleTransition();
             }
             emit ExecutionCooldownEnforced(
                 caseId,
@@ -373,16 +430,18 @@ contract AIEvaluatedArbiter is Ownable {
 
         bytes32 proofHash = arbitrationCase.evaluationHash;
         uint256 reputationWeightUsed = agentReputation[arbitrationCase.agent].creditScore;
+        bytes32 action;
 
         ITrustedEscrowExecution escrow = ITrustedEscrowExecution(arbitrationCase.escrowAddress);
 
         if (arbitrationCase.shouldRelease) {
             escrow.releaseFundsByArbiter(arbitrationCase.demandOrObligationId);
             arbitrationCase.lifecycle = CaseLifecycle.ExecutedRelease;
+            action = keccak256("release");
             emit ArbitrationTerminalAction(
                 caseId,
                 arbitrationCase.escrowAddress,
-                keccak256("release"),
+                action,
                 msg.sender,
                 proofHash,
                 reputationWeightUsed
@@ -390,10 +449,11 @@ contract AIEvaluatedArbiter is Ownable {
         } else {
             escrow.clawbackByArbiter(arbitrationCase.demandOrObligationId);
             arbitrationCase.lifecycle = CaseLifecycle.ExecutedClawback;
+            action = keccak256("clawback");
             emit ArbitrationTerminalAction(
                 caseId,
                 arbitrationCase.escrowAddress,
-                keccak256("clawback"),
+                action,
                 msg.sender,
                 proofHash,
                 reputationWeightUsed
@@ -404,21 +464,35 @@ contract AIEvaluatedArbiter is Ownable {
         arbitrationCase.executedAt = block.timestamp;
         lastExecutionTimes[arbitrationCase.agent] = block.timestamp;
 
+        emit CaseExecuted(caseId, arbitrationCase.shouldRelease, arbitrationCase.executedAt, action);
         emit ArbitrationExecuted(caseId, arbitrationCase.shouldRelease, arbitrationCase.executedAt);
-
         emit ArbitrationResolved(caseId, arbitrationCase.agent, 0);
     }
 
     /**
-     * @dev Cancel a non-terminal arbitration case.
+     * @dev Emergency cancellation of arbitration case
+     * Can only cancel in pre-execution states (Requested or Evaluated)
+     * Owner or oracle can initiate with specified reason
+     *
+     * @param caseId Case to cancel
+     * @param reason Cancellation reason code for audit trail
      */
-    function cancelArbitration(uint256 caseId) external onlyOwner {
+    function cancelArbitration(uint256 caseId, CancelReason reason) external {
         ArbitrationCase storage arbitrationCase = cases[caseId];
-        require(arbitrationCase.escrowAddress != address(0), "Invalid case");
-        require(!arbitrationCase.executed, "Already executed");
-        require(arbitrationCase.lifecycle != CaseLifecycle.Cancelled, "Already cancelled");
+        if (arbitrationCase.escrowAddress == address(0)) revert InvalidCase();
+        if (arbitrationCase.executed) revert AlreadyExecuted();
+        if (arbitrationCase.lifecycle == CaseLifecycle.Cancelled) revert InvalidLifecycleTransition();
+        if (arbitrationCase.lifecycle == CaseLifecycle.ExecutedRelease || 
+            arbitrationCase.lifecycle == CaseLifecycle.ExecutedClawback) revert InvalidLifecycleTransition();
+        if (msg.sender != owner() && msg.sender != oracleAddress) revert NotAuthorized();
 
+        arbitrationCase.isCancelled = true;
+        arbitrationCase.cancelReason = reason;
+        arbitrationCase.cancelledBy = msg.sender;
+        arbitrationCase.cancelledAt = block.timestamp;
         arbitrationCase.lifecycle = CaseLifecycle.Cancelled;
+        
+        emit CaseCancelled(caseId, reason, msg.sender, block.timestamp);
         emit ArbitrationCancelled(caseId, msg.sender, block.timestamp);
     }
 
@@ -485,6 +559,62 @@ contract AIEvaluatedArbiter is Ownable {
      */
     function isAgentQualified(address agent) external view returns (bool) {
         return agentReputation[agent].creditScore >= minimumCreditScore;
+    }
+
+    /**
+     * @dev Get case summary for audit clarity
+     * Returns key decision metrics and terminal state info
+     */
+    function getCaseSummary(uint256 caseId) external view returns (
+        CaseLifecycle lifecycle,
+        bool resolved,
+        bool executed,
+        bool shouldRelease,
+        uint256 evaluatedAt,
+        uint256 executedAt,
+        bool isCancelled,
+        CancelReason cancelReason,
+        address cancelledBy
+    ) {
+        ArbitrationCase storage arbitrationCase = cases[caseId];
+        return (
+            arbitrationCase.lifecycle,
+            arbitrationCase.resolved,
+            arbitrationCase.executed,
+            arbitrationCase.shouldRelease,
+            arbitrationCase.evaluatedAt,
+            arbitrationCase.executedAt,
+            arbitrationCase.isCancelled,
+            arbitrationCase.cancelReason,
+            arbitrationCase.cancelledBy
+        );
+    }
+
+    /**
+     * @dev Get case proof details for verification
+     * Returns proof hash, evaluator, and evidence metadata
+     */
+    function getCaseProof(uint256 caseId) external view returns (
+        bytes32 evaluationHash,
+        address evaluator,
+        bytes32 sourceIdsHash,
+        uint256 sourceCount,
+        bytes32 evidenceHash,
+        string memory model,
+        string memory modelVersion
+    ) {
+        ArbitrationCase storage arbitrationCase = cases[caseId];
+        // Note: sourceCount is not stored directly; it's in the EvaluationProof
+        // This function provides the metadata that is persisted
+        return (
+            arbitrationCase.evaluationHash,
+            arbitrationCase.evaluator,
+            arbitrationCase.sourceIdsHash,
+            0, // sourceCount not persisted; passed only during evaluation
+            arbitrationCase.evidenceHash,
+            arbitrationCase.model,
+            arbitrationCase.modelVersion
+        );
     }
 
     /**

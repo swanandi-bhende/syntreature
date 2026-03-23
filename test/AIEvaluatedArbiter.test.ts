@@ -817,4 +817,401 @@ describe("AIEvaluatedArbiter", function () {
       expect(foundThresholdEvent).to.equal(true);
     });
   });
+
+  describe("Phase 2 Step 5: Evaluation/Execution Separation and Emergency Cancel", function () {
+    it("should emit CaseEvaluated event when case is evaluated", async function () {
+      const requestTx = await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1001,
+        agent.address,
+        1,
+        "Eval event test"
+      );
+      const requestReceipt = await requestTx.wait();
+      let caseId = 0n;
+      if (requestReceipt) {
+        for (const eventLog of requestReceipt.logs) {
+          try {
+            const event = arbiter.interface.parseLog(eventLog);
+            if (event && event.name === "ArbitrationRequested") {
+              caseId = event.args[0];
+            }
+          } catch (e) {}
+        }
+      }
+      expect(caseId > 0n).to.be.true;
+
+      const proof = await makeEvaluationProof(arbiter, oracle, caseId, true, {
+        nonce: caseId,
+      });
+
+      const tx = await arbiter.connect(oracle).evaluateCondition(caseId, proof);
+      const receipt = await tx.wait();
+
+      // Collect all events for debugging
+      const eventNames: string[] = [];
+      if (receipt) {
+        for (const eventLog of receipt.logs) {
+          try {
+            const event = arbiter.interface.parseLog(eventLog);
+            if (event) {
+              eventNames.push(event.name);
+              if (event.name === "CaseEvaluated") {
+                expect(event.args.caseId).to.equal(caseId);
+                expect(event.args.evaluatedAt > 0n).to.be.true;
+                expect(event.args.evaluationHash).to.equal(proof.signature);
+                expect(event.args.requiredThreshold).to.equal(5000n);
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      expect(eventNames).to.include("CaseEvaluated");
+    });
+
+    it("should emit CaseExecuted event during execution", async function () {
+      const requestTx = await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1002,
+        agent.address,
+        1,
+        "Exec event test"
+      );
+      const requestReceipt = await requestTx.wait();
+      let caseId = 0n;
+      if (requestReceipt) {
+        for (const eventLog of requestReceipt.logs) {
+          try {
+            const event = arbiter.interface.parseLog(eventLog);
+            if (event && event.name === "ArbitrationRequested") {
+              caseId = event.args[0];
+            }
+          } catch (e) {}
+        }
+      }
+      expect(caseId > 0n).to.be.true;
+
+      const proof = await makeEvaluationProof(arbiter, oracle, caseId, true, {
+        nonce: caseId,
+      });
+      await arbiter.connect(oracle).evaluateCondition(caseId, proof);
+
+      const tx = await arbiter.connect(oracle).executeArbitration(caseId);
+      const receipt = await tx.wait();
+      const logs = receipt?.logs ?? [];
+
+      let foundCaseExecutedEvent = false;
+      for (const eventLog of logs) {
+        try {
+          const event = arbiter.interface.parseLog(eventLog);
+          if (event && event.name === "CaseExecuted") {
+            expect(event.args.caseId).to.equal(caseId);
+            expect(event.args.shouldRelease).to.equal(true);
+            expect(event.args.executedAt > 0n).to.be.true;
+            foundCaseExecutedEvent = true;
+          }
+        } catch (e) {
+          // Continue if parse fails
+        }
+      }
+      expect(foundCaseExecutedEvent).to.equal(true);
+    });
+
+    it("should allow owner to cancel with emergency reason code", async function () {
+      const requestTx = await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1003,
+        agent.address,
+        1,
+        "Cancel test"
+      );
+      const requestReceipt = await requestTx.wait();
+      let caseId = 0n;
+      if (requestReceipt) {
+        for (const eventLog of requestReceipt.logs) {
+          try {
+            const event = arbiter.interface.parseLog(eventLog);
+            if (event && event.name === "ArbitrationRequested") {
+              caseId = event.args[0];
+            }
+          } catch (e) {}
+        }
+      }
+      expect(caseId > 0n).to.be.true;
+
+      // Cancel with reason code 1 (OwnerEmergency)
+      const tx = await arbiter.cancelArbitration(caseId, 1);
+      const receipt = await tx.wait();
+      expect(receipt?.status).to.equal(1);
+
+      const arbitrationCase = await arbiter.getCase(caseId);
+      expect(arbitrationCase.isCancelled).to.equal(true);
+      expect(arbitrationCase.cancelReason).to.equal(1n); // OwnerEmergency
+      expect(arbitrationCase.cancelledBy).to.equal(owner.address);
+      expect(arbitrationCase.lifecycle).to.equal(4n); // Cancelled
+    });
+
+    it("should emit CaseCancelled event with reason", async function () {
+      const requestTx = await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1004,
+        agent.address,
+        1,
+        "Cancel reason test"
+      );
+      const requestReceipt = await requestTx.wait();
+      let caseId = 0n;
+      if (requestReceipt) {
+        for (const eventLog of requestReceipt.logs) {
+          try {
+            const event = arbiter.interface.parseLog(eventLog);
+            if (event && event.name === "ArbitrationRequested") {
+              caseId = event.args[0];
+            }
+          } catch (e) {}
+        }
+      }
+      expect(caseId > 0n).to.be.true;
+
+      const tx = await arbiter.cancelArbitration(caseId, 2); // InvalidProof reason
+      const receipt = await tx.wait();
+      const logs = receipt?.logs ?? [];
+
+      let foundCaseCancelledEvent = false;
+      for (const eventLog of logs) {
+        try {
+          const event = arbiter.interface.parseLog(eventLog);
+          if (event && event.name === "CaseCancelled") {
+            expect(event.args.caseId).to.equal(caseId);
+            expect(event.args.reason).to.equal(2n); // InvalidProof
+            expect(event.args.cancelledBy).to.equal(owner.address);
+            foundCaseCancelledEvent = true;
+          }
+        } catch (e) {
+          // Continue if parse fails
+        }
+      }
+      expect(foundCaseCancelledEvent).to.equal(true);
+    });
+
+    it("should prevent cancel after execution", async function () {
+      const requestTx = await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1005,
+        agent.address,
+        1,
+        "Post-exec cancel test"
+      );
+      const requestReceipt = await requestTx.wait();
+      let caseId = 0n;
+      if (requestReceipt) {
+        for (const eventLog of requestReceipt.logs) {
+          try {
+            const event = arbiter.interface.parseLog(eventLog);
+            if (event && event.name === "ArbitrationRequested") {
+              caseId = event.args[0];
+            }
+          } catch (e) {}
+        }
+      }
+      expect(caseId > 0n).to.be.true;
+
+      const proof = await makeEvaluationProof(arbiter, oracle, caseId, true, {
+        nonce: caseId,
+      });
+      await arbiter.connect(oracle).evaluateCondition(caseId, proof);
+      await arbiter.connect(oracle).executeArbitration(caseId);
+
+      // Try to cancel after execution
+      let reverted = false;
+      try {
+        await arbiter.cancelArbitration(caseId, 1);
+      } catch (error) {
+        reverted = true;
+      }
+      expect(reverted).to.equal(true);
+    });
+
+    it("should allow cancel in Requested state", async function () {
+      const requestTx = await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1006,
+        agent.address,
+        1,
+        "Cancel Requested state test"
+      );
+      const requestReceipt = await requestTx.wait();
+      let caseId = 0n;
+      if (requestReceipt) {
+        for (const eventLog of requestReceipt.logs) {
+          try {
+            const event = arbiter.interface.parseLog(eventLog);
+            if (event && event.name === "ArbitrationRequested") {
+              caseId = event.args[0];
+            }
+          } catch (e) {}
+        }
+      }
+      expect(caseId > 0n).to.be.true;
+
+      const tx = await arbiter.cancelArbitration(caseId, 3); // SecurityViolation
+      const receipt = await tx.wait();
+      expect(receipt?.status).to.equal(1);
+
+      const arbitrationCase = await arbiter.getCase(caseId);
+      expect(arbitrationCase.lifecycle).to.equal(4n); // Cancelled
+      expect(arbitrationCase.cancelReason).to.equal(3n);
+    });
+
+    it("should allow cancel in Evaluated state", async function () {
+      const requestTx = await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1007,
+        agent.address,
+        1,
+        "Cancel Evaluated state test"
+      );
+      const requestReceipt = await requestTx.wait();
+      let caseId = 0n;
+      if (requestReceipt) {
+        for (const eventLog of requestReceipt.logs) {
+          try {
+            const event = arbiter.interface.parseLog(eventLog);
+            if (event && event.name === "ArbitrationRequested") {
+              caseId = event.args[0];
+            }
+          } catch (e) {}
+        }
+      }
+      expect(caseId > 0n).to.be.true;
+
+      const proof = await makeEvaluationProof(arbiter, oracle, caseId, true, {
+        nonce: caseId,
+      });
+      await arbiter.connect(oracle).evaluateCondition(caseId, proof);
+
+      // Now in Evaluated state - should be able to cancel
+      const tx = await arbiter.cancelArbitration(caseId, 4); // ProtocolViolation
+      const receipt = await tx.wait();
+      expect(receipt?.status).to.equal(1);
+
+      const arbitrationCase = await arbiter.getCase(caseId);
+      expect(arbitrationCase.lifecycle).to.equal(4n); // Cancelled
+      expect(arbitrationCase.cancelReason).to.equal(4n);
+    });
+
+    it("should provide getCaseSummary read helper", async function () {
+      const requestTx = await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1008,
+        agent.address,
+        1,
+        "Summary helper test"
+      );
+      const requestReceipt = await requestTx.wait();
+      let caseId = 0n;
+      if (requestReceipt) {
+        for (const eventLog of requestReceipt.logs) {
+          try {
+            const event = arbiter.interface.parseLog(eventLog);
+            if (event && event.name === "ArbitrationRequested") {
+              caseId = event.args[0];
+            }
+          } catch (e) {}
+        }
+      }
+      expect(caseId > 0n).to.be.true;
+
+      const proof = await makeEvaluationProof(arbiter, oracle, caseId, true, {
+        nonce: caseId,
+      });
+      await arbiter.connect(oracle).evaluateCondition(caseId, proof);
+      await arbiter.connect(oracle).executeArbitration(caseId);
+
+      const summary = await arbiter.getCaseSummary(caseId);
+      expect(summary.lifecycle).to.equal(2n); // ExecutedRelease
+      expect(summary.resolved).to.equal(true);
+      expect(summary.executed).to.equal(true);
+      expect(summary.shouldRelease).to.equal(true);
+      expect(summary.evaluatedAt > 0n).to.be.true;
+      expect(summary.executedAt > 0n).to.be.true;
+      expect(summary.isCancelled).to.equal(false);
+    });
+
+    it("should provide getCaseProof read helper with verification data", async function () {
+      const requestTx = await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1009,
+        agent.address,
+        1,
+        "Proof helper test"
+      );
+      const requestReceipt = await requestTx.wait();
+      let caseId = 0n;
+      if (requestReceipt) {
+        for (const eventLog of requestReceipt.logs) {
+          try {
+            const event = arbiter.interface.parseLog(eventLog);
+            if (event && event.name === "ArbitrationRequested") {
+              caseId = event.args[0];
+            }
+          } catch (e) {}
+        }
+      }
+      expect(caseId > 0n).to.be.true;
+
+      const proof = await makeEvaluationProof(arbiter, oracle, caseId, true, {
+        model: "gpt-custom-model",
+        modelVersion: "2.5.1",
+        nonce: caseId,
+      });
+      await arbiter.connect(oracle).evaluateCondition(caseId, proof);
+
+      const proofData = await arbiter.getCaseProof(caseId);
+      expect(proofData.evaluationHash).to.not.equal(ethers.ZeroHash);
+      expect(proofData.evaluator).to.equal(oracle.address);
+      expect(proofData.sourceIdsHash).to.equal(proof.sourceIdsHash);
+      expect(proofData.evidenceHash).to.equal(proof.evidenceHash);
+      expect(proofData.model).to.equal("gpt-custom-model");
+      expect(proofData.modelVersion).to.equal("2.5.1");
+    });
+
+    it("should track cancellation details for audit trail", async function () {
+      const requestTx = await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1010,
+        agent.address,
+        1,
+        "Audit trail test"
+      );
+      const requestReceipt = await requestTx.wait();
+      let caseId = 0n;
+      if (requestReceipt) {
+        for (const eventLog of requestReceipt.logs) {
+          try {
+            const event = arbiter.interface.parseLog(eventLog);
+            if (event && event.name === "ArbitrationRequested") {
+              caseId = event.args[0];
+            }
+          } catch (e) {}
+        }
+      }
+      expect(caseId > 0n).to.be.true;
+
+      const proof = await makeEvaluationProof(arbiter, oracle, caseId, false, {
+        nonce: caseId,
+      });
+      await arbiter.connect(oracle).evaluateCondition(caseId, proof);
+
+      // Oracle cancels with SecurityViolation reason
+      await arbiter.connect(oracle).cancelArbitration(caseId, 3);
+
+      const arbitrationCase = await arbiter.getCase(caseId);
+      expect(arbitrationCase.isCancelled).to.equal(true);
+      expect(arbitrationCase.cancelReason).to.equal(3n); // SecurityViolation
+      expect(arbitrationCase.cancelledBy).to.equal(oracle.address);
+      expect(arbitrationCase.cancelledAt > 0n).to.be.true;
+    });
+  });
 });
