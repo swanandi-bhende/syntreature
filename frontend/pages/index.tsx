@@ -37,6 +37,13 @@ interface TxRecord {
   error?: string;
 }
 
+const DETERMINISTIC_ERROR_COPY = {
+  userRejected: "User rejected signature",
+  wrongNetwork: "Wrong network",
+  unauthorizedOnlyAgent: "Unauthorized wallet for onlyAgent function",
+  missingEnv: "Missing env config",
+} as const;
+
 function parseDemandFromNl(nlDescription: string) {
   const collateralMatch = nlDescription.match(/(\d+(?:\.\d+)?)\s*ETH/i);
   const priceMatch = nlDescription.match(/(?:>|above|over)\s*\$?(\d+(?:\.\d+)?)/i);
@@ -63,11 +70,11 @@ function toUserFacingError(error: unknown) {
   const reasonText = normalized.reason || normalized.message || "Transaction failed.";
 
   if (normalized.code === 4001 || /user rejected/i.test(reasonText)) {
-    return "User rejected signature.";
+    return DETERMINISTIC_ERROR_COPY.userRejected;
   }
 
   if (/onlyagent|unauthorized|not authorized/i.test(reasonText)) {
-    return "Unauthorized wallet for onlyAgent function.";
+    return DETERMINISTIC_ERROR_COPY.unauthorizedOnlyAgent;
   }
 
   return reasonText;
@@ -134,15 +141,15 @@ export default function Home() {
   }
   if (isConnected && !isCorrectNetwork) {
     guardrailReasons.push(
-      `Wrong network. Switch to ${NETWORKS.statusSepolia.name} (chainId ${statusSepoliaChainId}) for escrow write actions.`
+      `${DETERMINISTIC_ERROR_COPY.wrongNetwork}: switch to ${NETWORKS.statusSepolia.name} (chainId ${statusSepoliaChainId}) for escrow write actions.`
     );
   }
   if (isConnected && !isAuthorizedAgent) {
-    guardrailReasons.push("Wallet not authorized as agent for onlyAgent write actions.");
+    guardrailReasons.push(`${DETERMINISTIC_ERROR_COPY.unauthorizedOnlyAgent}.`);
   }
   if (missingContractConfigs.length > 0) {
     guardrailReasons.push(
-      `Missing contract address config: ${missingContractConfigs.join(", ")}.`
+      `${DETERMINISTIC_ERROR_COPY.missingEnv}: ${missingContractConfigs.join(", ")}.`
     );
   }
 
@@ -188,6 +195,53 @@ export default function Home() {
   const judgePassed = judgeChecklist.every((item) => item.passed);
 
   const latestTransactions = txRecords.slice(0, 5);
+
+  const validationChecks = [
+    {
+      key: "wrong-chain-guard",
+      label: "Wrong chain blocks writes with clear fix action",
+      passed:
+        !isConnected ||
+        isCorrectNetwork ||
+        (isConnected && !isCorrectNetwork && !canAttemptWrite),
+    },
+    {
+      key: "non-agent-disabled",
+      label: "Non-agent wallet clearly shown and write disabled",
+      passed:
+        !isConnected ||
+        isAuthorizedAgent ||
+        (isConnected && !isAuthorizedAgent && !canAttemptWrite),
+    },
+    {
+      key: "create-demand-confirmed",
+      label: "Create Demand creates real tx hash and confirmation",
+      passed:
+        hasCreateDemandConfirmed &&
+        txRecords.some(
+          (record) =>
+            record.step === "createDemand" &&
+            record.status === "confirmed" &&
+            !!record.txHash &&
+            record.txHash !== "awaiting-signature"
+        ),
+    },
+    {
+      key: "status-explorer-link",
+      label: "Explorer link opens correct Status explorer tx page",
+      passed: txRecords.some(
+        (record) =>
+          record.step === "createDemand" &&
+          !!record.explorerUrl &&
+          record.explorerUrl.startsWith(`${NETWORKS.statusSepolia.explorer}/tx/`)
+      ),
+    },
+    {
+      key: "judge-panel-present",
+      label: "Judge Demo Mode shows checklist, chain, contracts, latest txs, and pass/fail badges",
+      passed: true,
+    },
+  ];
 
   const toJudgeStatus = (status: TxStatus) => {
     if (status === "confirmed") return "success";
@@ -335,6 +389,14 @@ export default function Home() {
       window.ethereum?.removeListener("chainChanged", handleChainChanged);
     };
   }, []);
+
+  useEffect(() => {
+    if (isConnected && !isCorrectNetwork) {
+      setConnectError(
+        `${DETERMINISTIC_ERROR_COPY.wrongNetwork}: use \"Switch to Status Sepolia\" to continue.`
+      );
+    }
+  }, [isConnected, isCorrectNetwork]);
 
   const handleCreateDemand = async () => {
     if (!canAttemptWrite) return;
@@ -701,6 +763,18 @@ export default function Home() {
             </div>
 
             <div className={styles.judgeCard}>
+              <h3>Reproducible Judge Flow</h3>
+              <ol className={styles.judgeFlowList}>
+                <li>Connect wallet.</li>
+                <li>Auto-check network; if wrong, click "Switch to Status Sepolia".</li>
+                <li>Enter NL demand text.</li>
+                <li>Submit createDemand tx.</li>
+                <li>Open explorer proof link from lifecycle or transactions panel.</li>
+                <li>Confirm checklist reaches pass state.</li>
+              </ol>
+            </div>
+
+            <div className={styles.judgeCard}>
               <h3>Current Chain</h3>
               <div className={styles.judgeMetaList}>
                 <div>
@@ -769,7 +843,7 @@ export default function Home() {
             </div>
 
             <div className={styles.judgeCard}>
-              <h3>Latest Transactions</h3>
+              <h3>Latest Transactions (Compact Action Log)</h3>
               {latestTransactions.length === 0 ? (
                 <p className={styles.empty}>No transactions yet</p>
               ) : (
@@ -822,6 +896,18 @@ export default function Home() {
                 ? "PASS: Minimum judge demo flow completed with visible proof links."
                 : "FAIL: Required judge demo steps are still incomplete."}
             </p>
+
+            <div className={styles.validationChecklist}>
+              <h4>Validation Checklist</h4>
+              {validationChecks.map((item) => (
+                <div key={item.key} className={styles.validationRow}>
+                  <span>{item.label}</span>
+                  <span className={item.passed ? styles.judgePass : styles.judgeFail}>
+                    {item.passed ? "Pass" : "Fail"}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 

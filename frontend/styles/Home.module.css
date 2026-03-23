@@ -377,6 +377,13 @@
   word-break: break-word;
 }
 
+.judgeFlowList {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+
 .judgeTxTable {
   display: grid;
   gap: 8px;
@@ -418,6 +425,27 @@
 .judgeSummary h3 {
   margin: 0 0 8px;
   color: #3f54a1;
+}
+
+.validationChecklist {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #cfd8f7;
+}
+
+.validationChecklist h4 {
+  margin: 0 0 8px;
+  color: #5064ad;
+}
+
+.validationRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #e5ebff;
+  padding: 6px 0;
+  font-size: 0.9rem;
 }
 
 .judgeSummaryPass {
