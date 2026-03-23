@@ -8,6 +8,7 @@ import {
   getSigner,
   getEscrowContract,
   toExplorerTxUrl,
+  toExplorerAddressUrl,
   isExpectedAgent,
   isSupportedChain,
   getMissingContractEnvKeys,
@@ -95,10 +96,13 @@ export default function Home() {
   const [latestBlockNumber, setLatestBlockNumber] = useState<number | null>(null);
   const [latestTimestamp, setLatestTimestamp] = useState("");
   const [txRecords, setTxRecords] = useState<TxRecord[]>([]);
+  const [proofLinkOpened, setProofLinkOpened] = useState(false);
 
   const statusSepoliaChainId = NETWORKS.statusSepolia.chainId;
   const arbitrumSepoliaChainId = NETWORKS.arbitrumSepolia.chainId;
   const collateralTokenStatus = process.env.NEXT_PUBLIC_COLLATERAL_TOKEN_STATUS || "";
+  const escrowAddressStatus = process.env.NEXT_PUBLIC_ESCROW_ADDRESS_STATUS || "";
+  const arbiterAddressStatus = process.env.NEXT_PUBLIC_ARBITER_ADDRESS_STATUS || "";
   const gmxAddressArbitrum = process.env.NEXT_PUBLIC_GMX_ADDRESS_ARBITRUM || "";
   const isCorrectNetwork = chainId === statusSepoliaChainId;
   const isAuthorizedAgent = (() => {
@@ -141,6 +145,55 @@ export default function Home() {
       `Missing contract address config: ${missingContractConfigs.join(", ")}.`
     );
   }
+
+  const markProofLinkOpened = () => {
+    setProofLinkOpened(true);
+  };
+
+  const escrowAddressExplorerUrl =
+    ethers.isAddress(escrowAddressStatus)
+      ? toExplorerAddressUrl(statusSepoliaChainId, escrowAddressStatus)
+      : "";
+  const arbiterAddressExplorerUrl =
+    ethers.isAddress(arbiterAddressStatus)
+      ? toExplorerAddressUrl(statusSepoliaChainId, arbiterAddressStatus)
+      : "";
+  const gmxManagerExplorerUrl =
+    ethers.isAddress(gmxAddressArbitrum)
+      ? toExplorerAddressUrl(arbitrumSepoliaChainId, gmxAddressArbitrum)
+      : "";
+
+  const hasCreateDemandSubmitted = txRecords.some(
+    (record) =>
+      record.step === "createDemand" && (record.status === "submitted" || record.status === "confirmed")
+  );
+  const hasCreateDemandConfirmed = txRecords.some(
+    (record) => record.step === "createDemand" && record.status === "confirmed"
+  );
+  const judgeChecklist = [
+    { key: "connect-wallet", label: "Connect wallet", passed: isConnected },
+    { key: "correct-chain", label: "Correct chain", passed: isCorrectNetwork },
+    {
+      key: "create-demand-submitted",
+      label: "Create demand tx submitted",
+      passed: hasCreateDemandSubmitted,
+    },
+    {
+      key: "create-demand-confirmed",
+      label: "Create demand tx confirmed",
+      passed: hasCreateDemandConfirmed,
+    },
+    { key: "proof-link-opened", label: "Proof link opened", passed: proofLinkOpened },
+  ];
+  const judgePassed = judgeChecklist.every((item) => item.passed);
+
+  const latestTransactions = txRecords.slice(0, 5);
+
+  const toJudgeStatus = (status: TxStatus) => {
+    if (status === "confirmed") return "success";
+    if (status === "failed") return "failed";
+    return "pending";
+  };
 
   const applyDisconnectedState = () => {
     setProvider(null);
@@ -555,7 +608,12 @@ export default function Home() {
                 <p className={styles.txRow}>
                   Tx Hash: {shortHash(latestTxHash)}{" "}
                   {latestExplorerUrl && (
-                    <a href={latestExplorerUrl} target="_blank" rel="noopener noreferrer">
+                    <a
+                      href={latestExplorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={markProofLinkOpened}
+                    >
                       view explorer
                     </a>
                   )}
@@ -604,7 +662,12 @@ export default function Home() {
                     <div className={styles.txRecordLine}>
                       Explorer:{" "}
                       {record.explorerUrl ? (
-                        <a href={record.explorerUrl} target="_blank" rel="noopener noreferrer">
+                        <a
+                          href={record.explorerUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={markProofLinkOpened}
+                        >
                           open
                         </a>
                       ) : (
@@ -616,6 +679,149 @@ export default function Home() {
                 ))}
               </div>
             )}
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <h2>Judge Demo Mode</h2>
+
+          <div className={styles.judgeGrid}>
+            <div className={styles.judgeCard}>
+              <h3>Step Checklist</h3>
+              <div className={styles.judgeChecklist}>
+                {judgeChecklist.map((item) => (
+                  <div key={item.key} className={styles.judgeChecklistRow}>
+                    <span>{item.label}</span>
+                    <span className={item.passed ? styles.judgePass : styles.judgeFail}>
+                      {item.passed ? "Pass" : "Fail"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.judgeCard}>
+              <h3>Current Chain</h3>
+              <div className={styles.judgeMetaList}>
+                <div>
+                  <span className={styles.label}>Chain name:</span>
+                  <span>{chainName}</span>
+                </div>
+                <div>
+                  <span className={styles.label}>Chain id:</span>
+                  <span>{chainId ?? "-"}</span>
+                </div>
+                <div>
+                  <span className={styles.label}>Network status:</span>
+                  <span className={isCorrectNetwork ? styles.judgePass : styles.judgeFail}>
+                    {isCorrectNetwork ? "Correct" : "Wrong"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.judgeCard}>
+              <h3>Contract Addresses</h3>
+              <div className={styles.judgeMetaList}>
+                <div>
+                  <span className={styles.label}>Escrow:</span>
+                  <span>{escrowAddressStatus || "Missing"}</span>
+                  {escrowAddressExplorerUrl && (
+                    <a
+                      href={escrowAddressExplorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={markProofLinkOpened}
+                    >
+                      explorer
+                    </a>
+                  )}
+                </div>
+                <div>
+                  <span className={styles.label}>Arbiter:</span>
+                  <span>{arbiterAddressStatus || "Missing"}</span>
+                  {arbiterAddressExplorerUrl && (
+                    <a
+                      href={arbiterAddressExplorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={markProofLinkOpened}
+                    >
+                      explorer
+                    </a>
+                  )}
+                </div>
+                <div>
+                  <span className={styles.label}>GMX manager:</span>
+                  <span>{gmxAddressArbitrum || "Missing"}</span>
+                  {gmxManagerExplorerUrl && (
+                    <a
+                      href={gmxManagerExplorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={markProofLinkOpened}
+                    >
+                      explorer
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.judgeCard}>
+              <h3>Latest Transactions</h3>
+              {latestTransactions.length === 0 ? (
+                <p className={styles.empty}>No transactions yet</p>
+              ) : (
+                <div className={styles.judgeTxTable}>
+                  {latestTransactions.map((record) => {
+                    const judgeStatus = toJudgeStatus(record.status);
+
+                    return (
+                      <div key={`judge-${record.id}`} className={styles.judgeTxRow}>
+                        <span>{record.step}</span>
+                        <span>{shortHash(record.txHash)}</span>
+                        <span
+                          className={
+                            judgeStatus === "success"
+                              ? styles.judgePass
+                              : judgeStatus === "failed"
+                                ? styles.judgeFail
+                                : styles.judgePending
+                          }
+                        >
+                          {judgeStatus}
+                        </span>
+                        <span>
+                          {record.explorerUrl ? (
+                            <a
+                              href={record.explorerUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={markProofLinkOpened}
+                            >
+                              explorer
+                            </a>
+                          ) : (
+                            "-"
+                          )}
+                        </span>
+                        <span>{record.blockNumber ?? "-"}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className={styles.judgeSummary}>
+            <h3>Pass or Fail Summary</h3>
+            <p className={judgePassed ? styles.judgeSummaryPass : styles.judgeSummaryFail}>
+              {judgePassed
+                ? "PASS: Minimum judge demo flow completed with visible proof links."
+                : "FAIL: Required judge demo steps are still incomplete."}
+            </p>
           </div>
         </section>
 

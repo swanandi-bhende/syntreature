@@ -333,6 +333,105 @@
   word-break: break-word;
 }
 
+.judgeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.judgeCard {
+  background: #f4f7ff;
+  border: 1px solid #d7e0ff;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.judgeCard h3 {
+  margin: 0 0 10px;
+  color: #3f54a1;
+}
+
+.judgeChecklist {
+  display: grid;
+  gap: 8px;
+}
+
+.judgeChecklistRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid #e3e9ff;
+  padding-bottom: 6px;
+}
+
+.judgeMetaList {
+  display: grid;
+  gap: 8px;
+}
+
+.judgeMetaList > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  word-break: break-word;
+}
+
+.judgeTxTable {
+  display: grid;
+  gap: 8px;
+}
+
+.judgeTxRow {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr auto auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid #e1e8ff;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.86rem;
+}
+
+.judgePass {
+  color: #0d6a46;
+  font-weight: 700;
+}
+
+.judgeFail {
+  color: #a12335;
+  font-weight: 700;
+}
+
+.judgePending {
+  color: #8b5a00;
+  font-weight: 700;
+}
+
+.judgeSummary {
+  margin-top: 14px;
+  border-top: 2px solid #d8e1ff;
+  padding-top: 12px;
+}
+
+.judgeSummary h3 {
+  margin: 0 0 8px;
+  color: #3f54a1;
+}
+
+.judgeSummaryPass {
+  margin: 0;
+  color: #0d6a46;
+  font-weight: 700;
+}
+
+.judgeSummaryFail {
+  margin: 0;
+  color: #a12335;
+  font-weight: 700;
+}
+
 .empty {
   text-align: center;
   color: #999;
@@ -514,5 +613,9 @@
 
   .walletActionsRow {
     flex-direction: column;
+  }
+
+  .judgeTxRow {
+    grid-template-columns: 1fr;
   }
 }
