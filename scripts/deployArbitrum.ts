@@ -122,6 +122,8 @@ function writeJson(filePath: string, payload: unknown): void {
 
 async function main() {
   const mode = parseModeArg();
+  const modeProofType = mode === "live-gmx" ? "bond-credit-live-gmx" : "bond-credit-testnet-wrapper";
+  const writeCompatibilityArtifact = (process.env.WRITE_COMPAT_ARTIFACT ?? "").trim() === "true";
   console.log("============================================================");
   console.log(`MODE: ${mode.toUpperCase()}`);
   console.log("============================================================\n");
@@ -390,7 +392,7 @@ async function main() {
   );
 
   const artifact = {
-    proofType: "bond-credit-live-gmx",
+    proofType: modeProofType,
     network: networkLabel,
     chainId: Number(chainId),
     mode,
@@ -398,7 +400,7 @@ async function main() {
     deployer: deployer.address,
     scriptVersion,
     proofManifest: {
-      proofType: "bond-credit-live-gmx",
+      proofType: modeProofType,
       generatedAt,
       scriptVersion,
       network: networkLabel,
@@ -421,6 +423,8 @@ async function main() {
       PriceFeed: priceFeedAddr,
     },
     tradeEvidence: {
+      openTxHash: openEvidence.txHash,
+      closeTxHash: closeEvidence.txHash,
       openPosition: openEvidence,
       closePosition: closeEvidence,
       position: positionSnapshot,
@@ -441,6 +445,18 @@ async function main() {
         lossClose: "-25",
         noCloseOrFlat: "0",
       },
+    },
+    deterministicCreditPolicy: {
+      profitableClose: "+25",
+      lossClose: "-25",
+      noCloseOrFlat: "0",
+    },
+    linkage: {
+      model: "indirect",
+      linkagePositionKey: linkagePositionKey ?? positionKey,
+      tradeId: linkagePositionKey ?? positionKey,
+      closeTxHash: closeEvidence.txHash,
+      scoreUpdateTxHash: resolvedScoreUpdateTxHash,
     },
     explorerLinks: {
       openTx: openEvidence.txHash && explorerBase ? `${explorerBase}/tx/${openEvidence.txHash}` : null,
@@ -495,13 +511,19 @@ async function main() {
   const compatibilityPath = path.join(deploymentsDir, "arbitrum-deployment.json");
 
   writeJson(modeArtifactPath, artifact);
-  writeJson(compatibilityPath, artifact);
+  if (writeCompatibilityArtifact) {
+    writeJson(compatibilityPath, artifact);
+  }
 
   console.log("\n============================================================");
   console.log("DEPLOYMENT COMPLETE");
   console.log("============================================================");
   console.log("Mode artifact:", modeArtifactPath);
-  console.log("Compatibility artifact:", compatibilityPath);
+  if (writeCompatibilityArtifact) {
+    console.log("Compatibility artifact:", compatibilityPath);
+  } else {
+    console.log("Compatibility artifact: skipped (set WRITE_COMPAT_ARTIFACT=true to enable)");
+  }
   console.log("Evidence complete:", evidenceComplete);
 }
 

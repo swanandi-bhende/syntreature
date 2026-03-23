@@ -3,13 +3,13 @@
   "network": "hardhat",
   "chainId": 31337,
   "mode": "testnet-wrapper",
-  "generatedAt": "2026-03-23T05:17:13.036Z",
+  "generatedAt": "2026-03-23T05:25:35.441Z",
   "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  "scriptVersion": "55019b3",
+  "scriptVersion": "1e224a9",
   "proofManifest": {
     "proofType": "bond-credit-live-gmx",
-    "generatedAt": "2026-03-23T05:17:13.036Z",
-    "scriptVersion": "55019b3",
+    "generatedAt": "2026-03-23T05:25:35.441Z",
+    "scriptVersion": "1e224a9",
     "network": "hardhat",
     "chainId": 31337,
     "evidenceComplete": true
@@ -30,17 +30,19 @@
     "PriceFeed": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
   },
   "tradeEvidence": {
+    "openTxHash": "0x82218b48fcb6c7d8435ca231844cd904a9ad31299bfecbf6f5a253dd16fc8844",
+    "closeTxHash": "0x8c4f7a67cfe482d85fd7eaefd483b2fc49637a117a04bc4a0d77a127dab6aadf",
     "openPosition": {
       "txHash": "0x82218b48fcb6c7d8435ca231844cd904a9ad31299bfecbf6f5a253dd16fc8844",
       "blockNumber": 9,
-      "blockTimestamp": 1774243041,
+      "blockTimestamp": 1774243543,
       "gasUsed": "296495",
       "status": 1
     },
     "closePosition": {
       "txHash": "0x8c4f7a67cfe482d85fd7eaefd483b2fc49637a117a04bc4a0d77a127dab6aadf",
       "blockNumber": 10,
-      "blockTimestamp": 1774243042,
+      "blockTimestamp": 1774243544,
       "gasUsed": "219902",
       "status": 1
     },
@@ -72,6 +74,18 @@
       "lossClose": "-25",
       "noCloseOrFlat": "0"
     }
+  },
+  "deterministicCreditPolicy": {
+    "profitableClose": "+25",
+    "lossClose": "-25",
+    "noCloseOrFlat": "0"
+  },
+  "linkage": {
+    "model": "indirect",
+    "linkagePositionKey": "0xbc9aca8d1cdee21b07d8ada8cae995276624f0ba2803310e593abbfd395f7c5e",
+    "tradeId": "0xbc9aca8d1cdee21b07d8ada8cae995276624f0ba2803310e593abbfd395f7c5e",
+    "closeTxHash": "0x8c4f7a67cfe482d85fd7eaefd483b2fc49637a117a04bc4a0d77a127dab6aadf",
+    "scoreUpdateTxHash": "0xa2081d73371e6298369a0ce2cf454251de90a20cabf2c8a60b96c08cc3251304"
   },
   "explorerLinks": {
     "openTx": null,

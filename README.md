@@ -203,7 +203,9 @@ Deterministic score delta policy:
 This subsection documents wrapper/testnet execution and is not part of the live proof pack.
 
 - Wrapper artifact: [deployments/arbitrum-deployment.testnet.json](deployments/arbitrum-deployment.testnet.json)
-- Compatibility copy: [deployments/arbitrum-deployment.json](deployments/arbitrum-deployment.json)
+- Compatibility copy is disabled by default to avoid mixed proof artifacts.
+- Optional legacy copy can be emitted by setting `WRITE_COMPAT_ARTIFACT=true`.
+- Judge proofs must reference only [deployments/arbitrum-deployment.live.json](deployments/arbitrum-deployment.live.json).
 
 ---
 
