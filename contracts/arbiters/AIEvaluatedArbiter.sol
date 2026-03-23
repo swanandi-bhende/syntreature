@@ -226,12 +226,12 @@ contract AIEvaluatedArbiter is Ownable {
     // Modifiers
     modifier onlyValidAgent(uint256 agentId) {
         IERC8004 erc8004 = IERC8004(erc8004Address);
-        require(erc8004.ownerOf(agentId) != address(0), "Invalid agent ID");
+        if (erc8004.ownerOf(agentId) == address(0)) revert InvalidAgent();
         _;
     }
 
     modifier onlyOracle() {
-        require(msg.sender == oracleAddress, "Only oracle can call");
+        if (msg.sender != oracleAddress) revert InvalidCaller();
         _;
     }
 
@@ -260,9 +260,9 @@ contract AIEvaluatedArbiter is Ownable {
         uint256 agentId,
         string memory nlCondition
     ) external onlyValidAgent(agentId) returns (uint256) {
-        require(escrow != address(0), "Invalid escrow");
-        require(agent != address(0), "Invalid agent");
-        require(trustedEscrow[escrow], "Escrow not trusted");
+        if (escrow == address(0)) revert InvalidEscrow();
+        if (agent == address(0)) revert InvalidAgent();
+        if (!trustedEscrow[escrow]) revert EscrowNotTrusted();
 
         uint256 caseId = caseCounter++;
 
@@ -308,10 +308,14 @@ contract AIEvaluatedArbiter is Ownable {
      */
     function evaluateCondition(uint256 caseId, EvaluationProof calldata proof) external onlyOracle {
         ArbitrationCase storage arbitrationCase = cases[caseId];
-        if (arbitrationCase.resolved) revert AlreadyEvaluated();
         if (arbitrationCase.escrowAddress == address(0)) revert InvalidCase();
-        if (arbitrationCase.lifecycle != CaseLifecycle.Requested) revert InvalidLifecycleTransition();
         if (proof.caseId != caseId) revert ProofNotValid();
+
+        bytes32 nonceKey = keccak256(abi.encodePacked(caseId, proof.nonce));
+        if (usedProofNonces[nonceKey]) revert NonceAlreadyUsed();
+
+        if (arbitrationCase.resolved) revert AlreadyEvaluated();
+        if (arbitrationCase.lifecycle != CaseLifecycle.Requested) revert InvalidLifecycleTransition();
         if (proof.issuedAt > block.timestamp) revert ProofNotValid();
         if (proof.expiresAt < block.timestamp) revert ProofNotValid();
         if (proof.sourceCount == 0) revert InsufficientEvidence();
@@ -339,9 +343,6 @@ contract AIEvaluatedArbiter is Ownable {
 
         // Check confidence meets reputation-adjusted threshold
         if (proof.confidenceBps < requiredThreshold) revert ConfidenceBelowThreshold();
-
-        bytes32 nonceKey = keccak256(abi.encodePacked(caseId, proof.nonce));
-        if (usedProofNonces[nonceKey]) revert NonceAlreadyUsed();
 
         bytes32 digest = hashEvaluationProof(proof);
         address signer = digest.recover(proof.signature);
@@ -664,7 +665,7 @@ contract AIEvaluatedArbiter is Ownable {
     }
 
     function setTrustedEscrow(address escrow, bool isTrusted) external onlyOwner {
-        require(escrow != address(0), "Invalid escrow");
+        if (escrow == address(0)) revert InvalidEscrow();
         trustedEscrow[escrow] = isTrusted;
         emit TrustedEscrowSet(escrow, isTrusted);
     }

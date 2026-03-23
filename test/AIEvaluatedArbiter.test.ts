@@ -1214,4 +1214,186 @@ describe("AIEvaluatedArbiter", function () {
       expect(arbitrationCase.cancelledAt > 0n).to.be.true;
     });
   });
+
+  describe("Phase 2 Step 6: Strict Invariants and Custom Errors", function () {
+    it("should revert execute before evaluated with InvalidLifecycleTransition", async function () {
+      const caseId = await arbiter.connect(agent).requestArbitration.staticCall(
+        await trustedEscrow.getAddress(),
+        1101,
+        agent.address,
+        1,
+        "Execute-before-evaluated invariant"
+      );
+
+      await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1101,
+        agent.address,
+        1,
+        "Execute-before-evaluated invariant"
+      );
+
+      await expect(
+        arbiter.connect(oracle).executeArbitration(caseId)
+      ).to.be.revertedWithCustomError(arbiter, "InvalidLifecycleTransition");
+    });
+
+    it("should revert evaluate from non-oracle with InvalidCaller", async function () {
+      const caseId = await arbiter.connect(agent).requestArbitration.staticCall(
+        await trustedEscrow.getAddress(),
+        1102,
+        agent.address,
+        1,
+        "Only-oracle invariant"
+      );
+
+      await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1102,
+        agent.address,
+        1,
+        "Only-oracle invariant"
+      );
+
+      const proof = await makeEvaluationProof(arbiter, oracle, caseId, true, {
+        nonce: 61001n,
+      });
+
+      await expect(
+        arbiter.connect(agent).evaluateCondition(caseId, proof)
+      ).to.be.revertedWithCustomError(arbiter, "InvalidCaller");
+    });
+
+    it("should revert evaluate after terminal execution with AlreadyEvaluated", async function () {
+      const caseId = await arbiter.connect(agent).requestArbitration.staticCall(
+        await trustedEscrow.getAddress(),
+        1103,
+        agent.address,
+        1,
+        "No-evaluate-after-terminal invariant"
+      );
+
+      await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1103,
+        agent.address,
+        1,
+        "No-evaluate-after-terminal invariant"
+      );
+
+      const proof = await makeEvaluationProof(arbiter, oracle, caseId, true, {
+        nonce: 61002n,
+      });
+      await arbiter.connect(oracle).evaluateCondition(caseId, proof);
+      await arbiter.connect(oracle).executeArbitration(caseId);
+
+      const secondProof = await makeEvaluationProof(arbiter, oracle, caseId, true, {
+        nonce: 61003n,
+      });
+
+      await expect(
+        arbiter.connect(oracle).evaluateCondition(caseId, secondProof)
+      ).to.be.revertedWithCustomError(arbiter, "AlreadyEvaluated");
+    });
+
+    it("should reject replayed proof nonce with NonceAlreadyUsed", async function () {
+      const caseId = await arbiter.connect(agent).requestArbitration.staticCall(
+        await trustedEscrow.getAddress(),
+        1104,
+        agent.address,
+        1,
+        "No-replay invariant"
+      );
+
+      await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1104,
+        agent.address,
+        1,
+        "No-replay invariant"
+      );
+
+      const proof = await makeEvaluationProof(arbiter, oracle, caseId, true, {
+        nonce: 61004n,
+      });
+      await arbiter.connect(oracle).evaluateCondition(caseId, proof);
+
+      await expect(
+        arbiter.connect(oracle).evaluateCondition(caseId, proof)
+      ).to.be.revertedWithCustomError(arbiter, "NonceAlreadyUsed");
+    });
+
+    it("should reject untrusted escrow with EscrowNotTrusted", async function () {
+      await expect(
+        arbiter.connect(agent).requestArbitration(
+          owner.address,
+          1105,
+          agent.address,
+          1,
+          "Trusted escrow invariant"
+        )
+      ).to.be.revertedWithCustomError(arbiter, "EscrowNotTrusted");
+    });
+
+    it("should reject invalid oracle signer with OracleSignatureInvalid", async function () {
+      const caseId = await arbiter.connect(agent).requestArbitration.staticCall(
+        await trustedEscrow.getAddress(),
+        1106,
+        agent.address,
+        1,
+        "Oracle signature invariant"
+      );
+
+      await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1106,
+        agent.address,
+        1,
+        "Oracle signature invariant"
+      );
+
+      const badSignatureProof = await makeEvaluationProof(arbiter, agent2, caseId, true, {
+        nonce: 61005n,
+      });
+
+      await expect(
+        arbiter.connect(oracle).evaluateCondition(caseId, badSignatureProof)
+      ).to.be.revertedWithCustomError(arbiter, "OracleSignatureInvalid");
+    });
+
+    it("should expose decision parameters through getDecisionParams", async function () {
+      const caseId = await arbiter.connect(agent).requestArbitration.staticCall(
+        await trustedEscrow.getAddress(),
+        1107,
+        agent.address,
+        1,
+        "Decision params helper"
+      );
+
+      await arbiter.connect(agent).requestArbitration(
+        await trustedEscrow.getAddress(),
+        1107,
+        agent.address,
+        1,
+        "Decision params helper"
+      );
+
+      const proof = await makeEvaluationProof(arbiter, oracle, caseId, true, {
+        confidenceBps: 7600n,
+        nonce: 61006n,
+      });
+      await arbiter.connect(oracle).evaluateCondition(caseId, proof);
+
+      const params = await arbiter.getDecisionParams(caseId);
+      const arbitrationCase = await arbiter.getCase(caseId);
+      const expectedDiscount = await arbiter.getReputationDiscount(arbitrationCase.agentScoreAtEvaluation);
+
+      expect(params.requiredThreshold).to.equal(arbitrationCase.requiredConfidenceBps);
+      expect(params.confidenceMargin).to.equal(arbitrationCase.confidenceMarginBps);
+      expect(params.agentScore).to.equal(arbitrationCase.agentScoreAtEvaluation);
+      expect(params.appliedDiscount).to.equal(expectedDiscount);
+      expect(params.requiredThreshold + params.appliedDiscount).to.equal(5000n);
+      expect(params.confidenceMargin).to.equal(proof.confidenceBps - params.requiredThreshold);
+    });
+  });
 });
