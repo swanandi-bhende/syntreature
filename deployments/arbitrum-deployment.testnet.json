@@ -1,55 +1,55 @@
 {
   "proofType": "bond-credit-testnet-wrapper",
-  "network": "hardhat",
-  "chainId": 31337,
+  "network": "Arbitrum Sepolia",
+  "chainId": 421614,
   "mode": "testnet-wrapper",
-  "generatedAt": "2026-03-23T05:28:25.746Z",
-  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  "scriptVersion": "1e224a9",
+  "generatedAt": "2026-03-23T06:25:08.763Z",
+  "deployer": "0x1ddD3B4B0CAa2fD0A436B976aac8a7DFb719E4d4",
+  "scriptVersion": "eddfb7c",
   "proofManifest": {
     "proofType": "bond-credit-testnet-wrapper",
-    "generatedAt": "2026-03-23T05:28:25.746Z",
-    "scriptVersion": "1e224a9",
-    "network": "hardhat",
-    "chainId": 31337,
+    "generatedAt": "2026-03-23T06:25:08.763Z",
+    "scriptVersion": "eddfb7c",
+    "network": "Arbitrum Sepolia",
+    "chainId": 421614,
     "evidenceComplete": true
   },
   "chainMetadata": {
-    "network": "hardhat",
-    "chainId": 31337,
-    "explorerBase": ""
+    "network": "arbitrumSepolia",
+    "chainId": 421614,
+    "explorerBase": "https://sepolia.arbiscan.io"
   },
   "contracts": {
-    "GMXPositionManager": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+    "GMXPositionManager": "0x6633E9892078568757f4b519A1B4a7Cc332171a7",
     "GMXPositionRouter": "0x0000000000000000000000000000000000000000",
     "GMXExchangeRouter": "0x0000000000000000000000000000000000000000",
-    "ERC8004RegistryOrAdapter": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
-    "ERC8004Registry": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
-    "Market": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-    "CollateralToken": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
-    "PriceFeed": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+    "ERC8004RegistryOrAdapter": "0x9BC0986C28e68F9F49F1581E6ca629320431Df81",
+    "ERC8004Registry": "0x2352Ce9984F968d2F8E5Ed8d07b07A776A646902",
+    "Market": "0x1ddD3B4B0CAa2fD0A436B976aac8a7DFb719E4d4",
+    "CollateralToken": "0xbD241372D6821e610e9eeBb49dCd2497c8Ec981f",
+    "PriceFeed": "0x9cA7aAfe63260728427bc3b81fD14215eA000FD9"
   },
   "tradeEvidence": {
-    "openTxHash": "0x82218b48fcb6c7d8435ca231844cd904a9ad31299bfecbf6f5a253dd16fc8844",
-    "closeTxHash": "0x8c4f7a67cfe482d85fd7eaefd483b2fc49637a117a04bc4a0d77a127dab6aadf",
+    "openTxHash": "0xbd4bf5493633eae817eba744c575b77f558326cb41c380babd462f0fe7daf9f0",
+    "closeTxHash": "0x3ae2fcc831d08b6df8df8792f033b8e84bfbce4b87122773120c889a66538a83",
     "openPosition": {
-      "txHash": "0x82218b48fcb6c7d8435ca231844cd904a9ad31299bfecbf6f5a253dd16fc8844",
-      "blockNumber": 9,
-      "blockTimestamp": 1774243713,
-      "gasUsed": "296495",
+      "txHash": "0xbd4bf5493633eae817eba744c575b77f558326cb41c380babd462f0fe7daf9f0",
+      "blockNumber": 252768420,
+      "blockTimestamp": 1774247096,
+      "gasUsed": "296496",
       "status": 1
     },
     "closePosition": {
-      "txHash": "0x8c4f7a67cfe482d85fd7eaefd483b2fc49637a117a04bc4a0d77a127dab6aadf",
-      "blockNumber": 10,
-      "blockTimestamp": 1774243714,
+      "txHash": "0x3ae2fcc831d08b6df8df8792f033b8e84bfbce4b87122773120c889a66538a83",
+      "blockNumber": 252768438,
+      "blockTimestamp": 1774247101,
       "gasUsed": "219902",
       "status": 1
     },
     "position": {
-      "key": "0xbc9aca8d1cdee21b07d8ada8cae995276624f0ba2803310e593abbfd395f7c5e",
-      "market": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-      "collateralToken": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "key": "0xd00d9a27fd5334138b2ef87b86063cd938f1180ccc5d38a8bc48011ed9e93b4d",
+      "market": "0x1ddD3B4B0CAa2fD0A436B976aac8a7DFb719E4d4",
+      "collateralToken": "0xbD241372D6821e610e9eeBb49dCd2497c8Ec981f",
       "collateralAmount": "50000000",
       "isLong": true,
       "sizeDeltaUsd": "250000000000000000000",
@@ -61,14 +61,14 @@
   "creditScoreEvidence": {
     "model": "indirect",
     "agentId": 1,
-    "scoreUpdateTxHash": "0xa2081d73371e6298369a0ce2cf454251de90a20cabf2c8a60b96c08cc3251304",
-    "scoreUpdateBlockNumber": 11,
+    "scoreUpdateTxHash": "0x22b9c8878ab4eac303bc6dba53175aad1329b60a375d29810721447d3319ad29",
+    "scoreUpdateBlockNumber": 252768454,
     "scoreBefore": 300,
     "scoreAfter": 300,
-    "updateReason": "trade_result_position_key_0xbc9aca8d1cdee21b07d8ada8cae995276624f0ba2803310e593abbfd395f7c5e",
-    "linkagePositionKey": "0xbc9aca8d1cdee21b07d8ada8cae995276624f0ba2803310e593abbfd395f7c5e",
-    "closeTxHash": "0x8c4f7a67cfe482d85fd7eaefd483b2fc49637a117a04bc4a0d77a127dab6aadf",
-    "tradeId": "0xbc9aca8d1cdee21b07d8ada8cae995276624f0ba2803310e593abbfd395f7c5e",
+    "updateReason": "trade_result_position_key_0xd00d9a27fd5334138b2ef87b86063cd938f1180ccc5d38a8bc48011ed9e93b4d",
+    "linkagePositionKey": "0xd00d9a27fd5334138b2ef87b86063cd938f1180ccc5d38a8bc48011ed9e93b4d",
+    "closeTxHash": "0x3ae2fcc831d08b6df8df8792f033b8e84bfbce4b87122773120c889a66538a83",
+    "tradeId": "0xd00d9a27fd5334138b2ef87b86063cd938f1180ccc5d38a8bc48011ed9e93b4d",
     "scoreDeltaPolicy": {
       "profitableClose": "+25",
       "lossClose": "-25",
@@ -82,21 +82,21 @@
   },
   "linkage": {
     "model": "indirect",
-    "linkagePositionKey": "0xbc9aca8d1cdee21b07d8ada8cae995276624f0ba2803310e593abbfd395f7c5e",
-    "tradeId": "0xbc9aca8d1cdee21b07d8ada8cae995276624f0ba2803310e593abbfd395f7c5e",
-    "closeTxHash": "0x8c4f7a67cfe482d85fd7eaefd483b2fc49637a117a04bc4a0d77a127dab6aadf",
-    "scoreUpdateTxHash": "0xa2081d73371e6298369a0ce2cf454251de90a20cabf2c8a60b96c08cc3251304"
+    "linkagePositionKey": "0xd00d9a27fd5334138b2ef87b86063cd938f1180ccc5d38a8bc48011ed9e93b4d",
+    "tradeId": "0xd00d9a27fd5334138b2ef87b86063cd938f1180ccc5d38a8bc48011ed9e93b4d",
+    "closeTxHash": "0x3ae2fcc831d08b6df8df8792f033b8e84bfbce4b87122773120c889a66538a83",
+    "scoreUpdateTxHash": "0x22b9c8878ab4eac303bc6dba53175aad1329b60a375d29810721447d3319ad29"
   },
   "explorerLinks": {
-    "openTx": null,
-    "closeTx": null,
-    "scoreUpdateTx": null,
+    "openTx": "https://sepolia.arbiscan.io/tx/0xbd4bf5493633eae817eba744c575b77f558326cb41c380babd462f0fe7daf9f0",
+    "closeTx": "https://sepolia.arbiscan.io/tx/0x3ae2fcc831d08b6df8df8792f033b8e84bfbce4b87122773120c889a66538a83",
+    "scoreUpdateTx": "https://sepolia.arbiscan.io/tx/0x22b9c8878ab4eac303bc6dba53175aad1329b60a375d29810721447d3319ad29",
     "contracts": {
-      "GMXPositionManager": null,
+      "GMXPositionManager": "https://sepolia.arbiscan.io/address/0x6633E9892078568757f4b519A1B4a7Cc332171a7",
       "GMXPositionRouter": null,
       "GMXExchangeRouter": null,
-      "ERC8004RegistryOrAdapter": null,
-      "ERC8004Registry": null
+      "ERC8004RegistryOrAdapter": "https://sepolia.arbiscan.io/address/0x9BC0986C28e68F9F49F1581E6ca629320431Df81",
+      "ERC8004Registry": "https://sepolia.arbiscan.io/address/0x2352Ce9984F968d2F8E5Ed8d07b07A776A646902"
     }
   },
   "notes": [

@@ -72,6 +72,14 @@ const CONTRACT_ENV_KEYS = {
 
 export type ContractConfigKey = keyof typeof CONTRACT_ENV_KEYS;
 
+const CONTRACT_ENV_VALUES: Record<ContractConfigKey, string> = {
+  escrowStatus: process.env.NEXT_PUBLIC_ESCROW_ADDRESS_STATUS || "",
+  arbiterStatus: process.env.NEXT_PUBLIC_ARBITER_ADDRESS_STATUS || "",
+  gmxArbitrum: process.env.NEXT_PUBLIC_GMX_ADDRESS_ARBITRUM || "",
+  collateralStatus: process.env.NEXT_PUBLIC_COLLATERAL_TOKEN_STATUS || "",
+  agent: process.env.NEXT_PUBLIC_AGENT_ADDRESS || "",
+};
+
 export const DEPLOYMENTS = {
   statusSepolia: {
     NLTradingEscrow: process.env.NEXT_PUBLIC_ESCROW_ADDRESS_STATUS || "",
@@ -104,14 +112,14 @@ function assertAddress(value: string, label: string) {
 
 export function getContractAddress(key: ContractConfigKey) {
   const envKey = CONTRACT_ENV_KEYS[key];
-  const value = process.env[envKey] || "";
+  const value = CONTRACT_ENV_VALUES[key];
   return assertAddress(value, envKey);
 }
 
 export function getMissingContractEnvKeys(keys: ContractConfigKey[]) {
   return keys
-    .map((key) => CONTRACT_ENV_KEYS[key])
-    .filter((envKey) => !(process.env[envKey] || ""));
+    .filter((key) => !CONTRACT_ENV_VALUES[key])
+    .map((key) => CONTRACT_ENV_KEYS[key]);
 }
 
 export function toExplorerTxUrl(chainId: number, txHash: string) {

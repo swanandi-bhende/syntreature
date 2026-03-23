@@ -3,23 +3,23 @@
   "chainId": 1660990954,
   "rpc": "https://public.sepolia.rpc.status.network",
   "deployer": "0x1ddD3B4B0CAa2fD0A436B976aac8a7DFb719E4d4",
-  "timestamp": "2026-03-23T05:36:30.939Z",
+  "timestamp": "2026-03-23T06:24:00.307Z",
   "integrationMode": "mock",
   "qualifyingForPartnerTracks": false,
   "nonQualifyingReason": "Mock fallback mode only. Do not use this artifact for partner-track qualification.",
   "protocolAddressesUsed": {
-    "alkahest": "0xe9ff8a2B645622A5f84C531f0bEbE9aB371068Cb",
-    "naturalLanguageAgreements": "0x6810e15ef33637c2D4cB2A5D793E789be0767418",
-    "erc8004": "0xbCdBE63b51ed57e0EcA0Af5C3022cCB8A17d3760"
+    "alkahest": "0x2162445cE96e0c2ee6f214E1e105d1838f2B3030",
+    "naturalLanguageAgreements": "0xE913035c361e9426Bddf9FA2CEF287B785998b71",
+    "erc8004": "0x357eDF6CBA7b0d2a758311e279670e6207B197aE"
   },
   "contracts": {
-    "NLTradingEscrow": "0x70F2D4B2F1383Da07FBbe68Fdd0E58abfb3c0ceB",
-    "AIEvaluatedArbiter": "0x47dF773Ca1c9f75f72c14574c9aCA4f1Fe49db6f",
-    "CollateralToken": "0xde8D2BAe94446aFf18a2be253fb85F0211DB904C",
-    "MockPriceFeed": "0xFe7c8b79B1797e323C0e54390A02DaEb73020c0a",
-    "MockAlkahest": "0xe9ff8a2B645622A5f84C531f0bEbE9aB371068Cb",
-    "MockERC8004": "0xbCdBE63b51ed57e0EcA0Af5C3022cCB8A17d3760",
-    "MockNLAgreements": "0x6810e15ef33637c2D4cB2A5D793E789be0767418"
+    "NLTradingEscrow": "0xB28b3Ec3Dd265208a8f3543fcCe98b0B2c937777",
+    "AIEvaluatedArbiter": "0x950f1CAC03Bbe2EE47C7e9d8379FdA161b759a76",
+    "CollateralToken": "0xE8C2EEDd44Df366D6ecefb7BF7BE9D1e027002dd",
+    "MockPriceFeed": "0x58964473385441087481DC372b77B882f935e063",
+    "MockAlkahest": "0x2162445cE96e0c2ee6f214E1e105d1838f2B3030",
+    "MockERC8004": "0x357eDF6CBA7b0d2a758311e279670e6207B197aE",
+    "MockNLAgreements": "0xE913035c361e9426Bddf9FA2CEF287B785998b71"
   },
   "protocolDemandEvidence": {
     "demandId": 0,
@@ -29,18 +29,18 @@
       "conditionHash": "0xbd6f96344325ad5d0a8faac10993ff8b5f67d2bf10bad1cc34770eec0ec6ac40",
       "obligationId": "1",
       "lifecycleStatus": 5,
-      "lastProtocolActionAt": 1774244190
+      "lastProtocolActionAt": 1774247040
     }
   },
   "transactions": {
-    "tokenApproval": "0x1438011b13ef2749cbf082e8636390bcc7f9fad0789499e4e1e7021d73190f3b",
-    "createDemand": "0xb92f5bfe53e8336f928ad4683448b285b8a2847b06fb3e4654bae8c05c784251",
-    "lockFunds": "0xb9633fd48f2419d322bf0656e1c2df9c22c4b374be2f5697a3048420789c7be6",
-    "recordTradeExecution": "0x77954315fc5081f499167f084a07b7e0b2578dc2f0de9342705e4ab0432ad830",
-    "requestArbitration": "0xd367a0087f78fd744398c9be322909b2971b2bb976208b2ff658f211c70ff054",
+    "tokenApproval": "0xd15f153c15d959f792874e68409f670c724e401e34beba4819bf98591149ebfe",
+    "createDemand": "0x00b5c17cfbef46dc08dfbd961e3ef7031fbbaa024cb8283b9ec093f0c326eaf9",
+    "lockFunds": "0x7c8f38565a71e319e9a375e3896bfab2e66964f1459c7a194cf4ebbad25ad91e",
+    "recordTradeExecution": "0x3999725aa9f8c06c11b92b9f32a54e37f4a97cb60f88da307013e4ddd8d13da3",
+    "requestArbitration": "0xa17e010ce8d764dca091d63083b9bd29841774b4ce0514c8879df886b765ef6a",
     "settlement": {
       "action": "clawback",
-      "hash": "0xa95c54f36ac3be747bac6ba9bc39b9c86535b7507fccff597c25a6ad1b5fa9a5"
+      "hash": "0xfcc109d841a74478993362498b5a0896c563f6d62e3428c87f54d7c18b50e72f"
     }
   },
   "gasUsed": {
@@ -59,57 +59,57 @@
   "gaslessVerification": [
     {
       "name": "createDemand",
-      "txHash": "0xb92f5bfe53e8336f928ad4683448b285b8a2847b06fb3e4654bae8c05c784251",
-      "explorerUrl": "https://sepoliascan.status.network/tx/0xb92f5bfe53e8336f928ad4683448b285b8a2847b06fb3e4654bae8c05c784251",
+      "txHash": "0x00b5c17cfbef46dc08dfbd961e3ef7031fbbaa024cb8283b9ec093f0c326eaf9",
+      "explorerUrl": "https://sepoliascan.status.network/tx/0x00b5c17cfbef46dc08dfbd961e3ef7031fbbaa024cb8283b9ec093f0c326eaf9",
       "receiptStatus": 1,
       "gasUsed": "883208",
       "gasPrice": "0",
       "effectiveGasPrice": null,
       "verifiedGasless": true,
-      "verificationNote": "Transaction accepted with gasPrice=0; Status Sepolia receipts expose effectiveGasPrice as null for gasless txs."
+      "verificationNote": "Transaction accepted with gasPrice=0; Status Sepolia receipts may report effectiveGasPrice as null for gasless txs."
     },
     {
       "name": "lockFunds",
-      "txHash": "0xb9633fd48f2419d322bf0656e1c2df9c22c4b374be2f5697a3048420789c7be6",
-      "explorerUrl": "https://sepoliascan.status.network/tx/0xb9633fd48f2419d322bf0656e1c2df9c22c4b374be2f5697a3048420789c7be6",
+      "txHash": "0x7c8f38565a71e319e9a375e3896bfab2e66964f1459c7a194cf4ebbad25ad91e",
+      "explorerUrl": "https://sepoliascan.status.network/tx/0x7c8f38565a71e319e9a375e3896bfab2e66964f1459c7a194cf4ebbad25ad91e",
       "receiptStatus": 1,
       "gasUsed": "159000",
       "gasPrice": "0",
       "effectiveGasPrice": null,
       "verifiedGasless": true,
-      "verificationNote": "Transaction accepted with gasPrice=0; Status Sepolia receipts expose effectiveGasPrice as null for gasless txs."
+      "verificationNote": "Transaction accepted with gasPrice=0; Status Sepolia receipts may report effectiveGasPrice as null for gasless txs."
     },
     {
       "name": "requestArbitration",
-      "txHash": "0xd367a0087f78fd744398c9be322909b2971b2bb976208b2ff658f211c70ff054",
-      "explorerUrl": "https://sepoliascan.status.network/tx/0xd367a0087f78fd744398c9be322909b2971b2bb976208b2ff658f211c70ff054",
+      "txHash": "0xa17e010ce8d764dca091d63083b9bd29841774b4ce0514c8879df886b765ef6a",
+      "explorerUrl": "https://sepoliascan.status.network/tx/0xa17e010ce8d764dca091d63083b9bd29841774b4ce0514c8879df886b765ef6a",
       "receiptStatus": 1,
       "gasUsed": "342020",
       "gasPrice": "0",
       "effectiveGasPrice": null,
       "verifiedGasless": true,
-      "verificationNote": "Transaction accepted with gasPrice=0; Status Sepolia receipts expose effectiveGasPrice as null for gasless txs."
+      "verificationNote": "Transaction accepted with gasPrice=0; Status Sepolia receipts may report effectiveGasPrice as null for gasless txs."
     },
     {
       "name": "settlementCompletion",
-      "txHash": "0xa95c54f36ac3be747bac6ba9bc39b9c86535b7507fccff597c25a6ad1b5fa9a5",
-      "explorerUrl": "https://sepoliascan.status.network/tx/0xa95c54f36ac3be747bac6ba9bc39b9c86535b7507fccff597c25a6ad1b5fa9a5",
+      "txHash": "0xfcc109d841a74478993362498b5a0896c563f6d62e3428c87f54d7c18b50e72f",
+      "explorerUrl": "https://sepoliascan.status.network/tx/0xfcc109d841a74478993362498b5a0896c563f6d62e3428c87f54d7c18b50e72f",
       "receiptStatus": 1,
       "gasUsed": "181732",
       "gasPrice": "0",
       "effectiveGasPrice": null,
       "verifiedGasless": true,
-      "verificationNote": "Terminal settlement action executed with gasPrice=0; Status Sepolia receipts expose effectiveGasPrice as null for gasless txs."
+      "verificationNote": "Terminal settlement action executed with gasPrice=0; Status Sepolia receipts may report effectiveGasPrice as null for gasless txs."
     }
   ],
   "lifecycleProof": {
     "demandId": 0,
     "obligationId": "1",
     "flow": {
-      "demand_created_tx": "0xb92f5bfe53e8336f928ad4683448b285b8a2847b06fb3e4654bae8c05c784251",
-      "funds_locked_tx": "0xb9633fd48f2419d322bf0656e1c2df9c22c4b374be2f5697a3048420789c7be6",
-      "arbitration_requested_tx": "0xd367a0087f78fd744398c9be322909b2971b2bb976208b2ff658f211c70ff054",
-      "settlement_completed_tx": "0xa95c54f36ac3be747bac6ba9bc39b9c86535b7507fccff597c25a6ad1b5fa9a5"
+      "demand_created_tx": "0x00b5c17cfbef46dc08dfbd961e3ef7031fbbaa024cb8283b9ec093f0c326eaf9",
+      "funds_locked_tx": "0x7c8f38565a71e319e9a375e3896bfab2e66964f1459c7a194cf4ebbad25ad91e",
+      "arbitration_requested_tx": "0xa17e010ce8d764dca091d63083b9bd29841774b4ce0514c8879df886b765ef6a",
+      "settlement_completed_tx": "0xfcc109d841a74478993362498b5a0896c563f6d62e3428c87f54d7c18b50e72f"
     }
   },
   "aiAgentActionEvidence": {
@@ -119,35 +119,13 @@
     "decisionBoundary": "Agent decides intent parameters (asset/side/trigger/size) and invokes protocol actions; contracts enforce collateral lock, lifecycle guards, arbitration gating, and terminal settlement state."
   },
   "demo": {
-    "shortDemoUrl": "https://example.com/syntreature-status-demo-pending",
+    "shortDemoUrl": "PENDING_ADD_DEMO_URL",
     "demoCovers": [
       "deployment",
       "gasless tx verification",
       "settlement completion",
       "agent explanation"
     ]
-  },
-  "phase4FinalValidation": {
-    "statusArtifact": {
-      "allFourTxHashesPresent": true,
-      "allFourHaveGasPriceAndEffectiveGasPrice": true,
-      "verifiedGaslessSetOnlyWhenSupported": true,
-      "settlementCompletionLinkedInLifecycleProof": true,
-      "shortDemoUrlPresent": true
-    },
-    "readmeSurface": {
-      "statusProofTableHasFourSteps": true,
-      "eachRowHasWhyThisTxMatters": true,
-      "qualificationCheckExplicitYesNo": true,
-      "aiAgentExplanationIncluded": true,
-      "demoClipLinkIncluded": true
-    },
-    "definitionOfDone": {
-      "deploymentPlusFullLifecycleIncludingSettlement": true,
-      "gaslessVerificationExplicitPerTx": true,
-      "readmeJudgeReadyNarrativeAndScoringSurface": true,
-      "noAmbiguityInQualificationCoverage": true
-    }
   },
   "notes": [
     "All transactions executed with gasPrice = 0 on Status Network",
