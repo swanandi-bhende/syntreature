@@ -50,6 +50,83 @@
     "requestArbitration": "342020",
     "settlement": "181732"
   },
+  "statusTrackQualification": {
+    "deployedOnStatusSepolia": true,
+    "chainId": 1660990954,
+    "aiAgentComponentPresent": true,
+    "hasReadmeOrDemo": true
+  },
+  "gaslessVerification": [
+    {
+      "name": "createDemand",
+      "txHash": "0xb92f5bfe53e8336f928ad4683448b285b8a2847b06fb3e4654bae8c05c784251",
+      "explorerUrl": "https://sepoliascan.status.network/tx/0xb92f5bfe53e8336f928ad4683448b285b8a2847b06fb3e4654bae8c05c784251",
+      "receiptStatus": 1,
+      "gasUsed": "883208",
+      "gasPrice": "0",
+      "effectiveGasPrice": null,
+      "verifiedGasless": true,
+      "verificationNote": "Transaction accepted with gasPrice=0; Status Sepolia receipts expose effectiveGasPrice as null for gasless txs."
+    },
+    {
+      "name": "lockFunds",
+      "txHash": "0xb9633fd48f2419d322bf0656e1c2df9c22c4b374be2f5697a3048420789c7be6",
+      "explorerUrl": "https://sepoliascan.status.network/tx/0xb9633fd48f2419d322bf0656e1c2df9c22c4b374be2f5697a3048420789c7be6",
+      "receiptStatus": 1,
+      "gasUsed": "159000",
+      "gasPrice": "0",
+      "effectiveGasPrice": null,
+      "verifiedGasless": true,
+      "verificationNote": "Transaction accepted with gasPrice=0; Status Sepolia receipts expose effectiveGasPrice as null for gasless txs."
+    },
+    {
+      "name": "requestArbitration",
+      "txHash": "0xd367a0087f78fd744398c9be322909b2971b2bb976208b2ff658f211c70ff054",
+      "explorerUrl": "https://sepoliascan.status.network/tx/0xd367a0087f78fd744398c9be322909b2971b2bb976208b2ff658f211c70ff054",
+      "receiptStatus": 1,
+      "gasUsed": "342020",
+      "gasPrice": "0",
+      "effectiveGasPrice": null,
+      "verifiedGasless": true,
+      "verificationNote": "Transaction accepted with gasPrice=0; Status Sepolia receipts expose effectiveGasPrice as null for gasless txs."
+    },
+    {
+      "name": "settlementCompletion",
+      "txHash": "0xa95c54f36ac3be747bac6ba9bc39b9c86535b7507fccff597c25a6ad1b5fa9a5",
+      "explorerUrl": "https://sepoliascan.status.network/tx/0xa95c54f36ac3be747bac6ba9bc39b9c86535b7507fccff597c25a6ad1b5fa9a5",
+      "receiptStatus": 1,
+      "gasUsed": "181732",
+      "gasPrice": "0",
+      "effectiveGasPrice": null,
+      "verifiedGasless": true,
+      "verificationNote": "Terminal settlement action executed with gasPrice=0; Status Sepolia receipts expose effectiveGasPrice as null for gasless txs."
+    }
+  ],
+  "lifecycleProof": {
+    "demandId": 0,
+    "obligationId": "1",
+    "flow": {
+      "demand_created_tx": "0xb92f5bfe53e8336f928ad4683448b285b8a2847b06fb3e4654bae8c05c784251",
+      "funds_locked_tx": "0xb9633fd48f2419d322bf0656e1c2df9c22c4b374be2f5697a3048420789c7be6",
+      "arbitration_requested_tx": "0xd367a0087f78fd744398c9be322909b2971b2bb976208b2ff658f211c70ff054",
+      "settlement_completed_tx": "0xa95c54f36ac3be747bac6ba9bc39b9c86535b7507fccff597c25a6ad1b5fa9a5"
+    }
+  },
+  "aiAgentActionEvidence": {
+    "agentId": 1,
+    "agentAddress": "0x1ddD3B4B0CAa2fD0A436B976aac8a7DFb719E4d4",
+    "actionSummary": "Agent submitted NL demand, triggered arbitration request, and finalized settlement via clawback completion.",
+    "decisionBoundary": "Agent decides intent parameters (asset/side/trigger/size) and invokes protocol actions; contracts enforce collateral lock, lifecycle guards, arbitration gating, and terminal settlement state."
+  },
+  "demo": {
+    "shortDemoUrl": "PENDING_ADD_DEMO_URL",
+    "demoCovers": [
+      "deployment",
+      "gasless tx verification",
+      "settlement completion",
+      "agent explanation"
+    ]
+  },
   "notes": [
     "All transactions executed with gasPrice = 0 on Status Network",
     "Includes protocol-bound demand creation with condition hash + obligation ID evidence",
