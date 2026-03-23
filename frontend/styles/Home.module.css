@@ -239,6 +239,100 @@
   margin-bottom: 4px;
 }
 
+.txLifecycleBox {
+  margin-top: 14px;
+  background: #f2f6ff;
+  border: 1px solid #ccd9ff;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.txLifecycleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.txStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.txStatusPending {
+  background: #fff1cf;
+  color: #8a5500;
+}
+
+.txStatusSuccess {
+  background: #def7e8;
+  color: #145e40;
+}
+
+.txStatusFail {
+  background: #ffe0e0;
+  color: #8a1f2c;
+}
+
+.txRow {
+  margin: 6px 0;
+}
+
+.txError {
+  margin: 8px 0 0;
+  color: #8a1f2c;
+  font-weight: 600;
+}
+
+.txRecordsSection {
+  margin-top: 16px;
+}
+
+.txRecordsSection h3 {
+  margin: 0 0 10px;
+  color: #4258a7;
+}
+
+.txRecordsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.txRecordCard {
+  background: #f8faff;
+  border: 1px solid #d9e1ff;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.txRecordTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.txStep {
+  font-weight: 700;
+  color: #4258a7;
+}
+
+.txRecordLine {
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
 .empty {
   text-align: center;
   color: #999;

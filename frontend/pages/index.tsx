@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import styles from "../styles/Home.module.css";
-import { NETWORKS, getNetworkConfig } from "../lib/contracts";
+import { NETWORKS, getNetworkConfig, NL_TRADING_ESCROW_ABI } from "../lib/contracts";
 
 interface Demand {
   id: string;
@@ -11,6 +11,60 @@ interface Demand {
   asset: string;
   priceThreshold: string;
   settled: boolean;
+}
+
+type TxStatus = "pending" | "submitted" | "confirmed" | "failed";
+
+interface TxRecord {
+  id: string;
+  step: string;
+  txHash: string;
+  status: TxStatus;
+  blockNumber?: number;
+  timestamp?: string;
+  explorerUrl: string;
+  error?: string;
+}
+
+function parseDemandFromNl(nlDescription: string) {
+  const collateralMatch = nlDescription.match(/(\d+(?:\.\d+)?)\s*ETH/i);
+  const priceMatch = nlDescription.match(/(?:>|above|over)\s*\$?(\d+(?:\.\d+)?)/i);
+  const sizeMatch = nlDescription.match(/size\s*\$?(\d+(?:\.\d+)?)/i);
+  const assetMatch = nlDescription.match(/\b(ETH|BTC|ARB|SOL)\b/i);
+
+  const collateralAmountEth = collateralMatch?.[1] ?? "0.01";
+  const tradeType = /\bshort\b/i.test(nlDescription) ? "short" : "long";
+  const asset = (assetMatch?.[1] ?? "ETH").toUpperCase();
+  const priceThreshold = Math.max(1, Math.floor(Number(priceMatch?.[1] ?? "3200")));
+  const sizeUsd = Math.max(1, Math.floor(Number(sizeMatch?.[1] ?? "1000")));
+
+  return {
+    collateralAmountEth,
+    tradeType,
+    asset,
+    priceThreshold,
+    sizeUsd,
+  };
+}
+
+function toUserFacingError(error: unknown) {
+  const normalized = error as { code?: number; message?: string; reason?: string };
+  const reasonText = normalized.reason || normalized.message || "Transaction failed.";
+
+  if (normalized.code === 4001 || /user rejected/i.test(reasonText)) {
+    return "User rejected signature.";
+  }
+
+  if (/onlyagent|unauthorized|not authorized/i.test(reasonText)) {
+    return "Unauthorized wallet for onlyAgent function.";
+  }
+
+  return reasonText;
+}
+
+function shortHash(hash: string) {
+  if (!hash || hash.length < 12) return hash;
+  return `${hash.slice(0, 8)}...${hash.slice(-6)}`;
 }
 
 type EthereumProvider = {
@@ -36,12 +90,20 @@ export default function Home() {
   const [chainId, setChainId] = useState<number | null>(null);
   const [chainName, setChainName] = useState("Not connected");
   const [connectError, setConnectError] = useState("");
+  const [createDemandStatus, setCreateDemandStatus] = useState<TxStatus | "idle">("idle");
+  const [createDemandError, setCreateDemandError] = useState("");
+  const [latestTxHash, setLatestTxHash] = useState("");
+  const [latestExplorerUrl, setLatestExplorerUrl] = useState("");
+  const [latestBlockNumber, setLatestBlockNumber] = useState<number | null>(null);
+  const [latestTimestamp, setLatestTimestamp] = useState("");
+  const [txRecords, setTxRecords] = useState<TxRecord[]>([]);
 
   const statusSepoliaChainId = NETWORKS.statusSepolia.chainId;
   const arbitrumSepoliaChainId = NETWORKS.arbitrumSepolia.chainId;
   const expectedAgentAddress = (process.env.NEXT_PUBLIC_AGENT_ADDRESS || "").toLowerCase();
   const escrowAddressStatus = process.env.NEXT_PUBLIC_ESCROW_ADDRESS_STATUS || "";
   const arbiterAddressStatus = process.env.NEXT_PUBLIC_ARBITER_ADDRESS_STATUS || "";
+  const collateralTokenStatus = process.env.NEXT_PUBLIC_COLLATERAL_TOKEN_STATUS || "";
   const gmxAddressArbitrum = process.env.NEXT_PUBLIC_GMX_ADDRESS_ARBITRUM || "";
   const isCorrectNetwork = chainId === statusSepoliaChainId;
   const isAuthorizedAgent =
@@ -50,6 +112,7 @@ export default function Home() {
   const missingContractConfigs: string[] = [];
   if (!escrowAddressStatus) missingContractConfigs.push("NEXT_PUBLIC_ESCROW_ADDRESS_STATUS");
   if (!arbiterAddressStatus) missingContractConfigs.push("NEXT_PUBLIC_ARBITER_ADDRESS_STATUS");
+  if (!collateralTokenStatus) missingContractConfigs.push("NEXT_PUBLIC_COLLATERAL_TOKEN_STATUS");
 
   const canAttemptWrite =
     isConnected &&
@@ -224,29 +287,130 @@ export default function Home() {
   const handleCreateDemand = async () => {
     if (!canAttemptWrite) return;
     if (!nlInput.trim()) return;
+    if (!provider || !signer) return;
+
+    const releaseTime = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
+    const parsed = parseDemandFromNl(nlInput);
+    const collateralAmount = ethers.parseUnits(parsed.collateralAmountEth, 18);
+
+    const pendingRecordId = `create-demand-${Date.now()}`;
+    setCreateDemandStatus("pending");
+    setCreateDemandError("");
+    setLatestTxHash("");
+    setLatestExplorerUrl("");
+    setLatestBlockNumber(null);
+    setLatestTimestamp("");
+
+    setTxRecords((prev) => [
+      {
+        id: pendingRecordId,
+        step: "createDemand",
+        txHash: "awaiting-signature",
+        status: "pending",
+        explorerUrl: "",
+      },
+      ...prev,
+    ]);
 
     setIsLoading(true);
     try {
-      // In production: call contract createDemand()
-      console.log("Creating demand:", nlInput);
+      const escrowContract = new ethers.Contract(
+        escrowAddressStatus,
+        NL_TRADING_ESCROW_ABI,
+        signer
+      );
 
-      // Simulate API call
-      setTimeout(() => {
+      const tx = await escrowContract.createDemand(
+        nlInput,
+        collateralTokenStatus,
+        collateralAmount,
+        parsed.tradeType,
+        parsed.asset,
+        BigInt(parsed.priceThreshold),
+        BigInt(parsed.sizeUsd),
+        BigInt(releaseTime)
+      );
+
+      const explorerUrl = `${NETWORKS.statusSepolia.explorer}/tx/${tx.hash}`;
+      setCreateDemandStatus("submitted");
+      setLatestTxHash(tx.hash);
+      setLatestExplorerUrl(explorerUrl);
+
+      setTxRecords((prev) => {
+        const next = [...prev];
+        const index = next.findIndex((record) => record.id === pendingRecordId);
+        const submittedRecord: TxRecord = {
+          id: pendingRecordId,
+          step: "createDemand",
+          txHash: tx.hash,
+          status: "submitted",
+          explorerUrl,
+        };
+        if (index >= 0) {
+          next[index] = submittedRecord;
+        } else {
+          next.unshift(submittedRecord);
+        }
+        return next;
+      });
+
+      const receipt = await tx.wait();
+
+      if (receipt?.status === 1) {
+        const blockNumber = Number(receipt.blockNumber);
+        const block = await provider.getBlock(blockNumber);
+        const timestampIso = block?.timestamp
+          ? new Date(Number(block.timestamp) * 1000).toISOString()
+          : "";
+
+        setCreateDemandStatus("confirmed");
+        setLatestBlockNumber(blockNumber);
+        setLatestTimestamp(timestampIso);
+
+        setTxRecords((prev) =>
+          prev.map((record) =>
+            record.id === pendingRecordId
+              ? {
+                  ...record,
+                  status: "confirmed",
+                  blockNumber,
+                  timestamp: timestampIso,
+                }
+              : record
+          )
+        );
+
         const newDemand: Demand = {
           id: Date.now().toString(),
           nlDescription: nlInput,
-          collateralAmount: "0.01",
-          tradeType: "long",
-          asset: "ETH",
-          priceThreshold: "3200",
+          collateralAmount: parsed.collateralAmountEth,
+          tradeType: parsed.tradeType,
+          asset: parsed.asset,
+          priceThreshold: String(parsed.priceThreshold),
           settled: false,
         };
 
-        setDemands([...demands, newDemand]);
+        setDemands((prev) => [newDemand, ...prev]);
         setNlInput("");
-      }, 1000);
+      } else {
+        throw new Error("Transaction reverted before confirmation.");
+      }
     } catch (error) {
-      console.error("Error creating demand:", error);
+      const userFacingError = toUserFacingError(error);
+      setCreateDemandStatus("failed");
+      setCreateDemandError(userFacingError);
+
+      setTxRecords((prev) =>
+        prev.map((record) =>
+          record.id === pendingRecordId
+            ? {
+                ...record,
+                status: "failed",
+                error: userFacingError,
+              }
+            : record
+        )
+      );
     } finally {
       setIsLoading(false);
     }
@@ -362,8 +526,98 @@ export default function Home() {
             disabled={isLoading || !canAttemptWrite || !nlInput.trim()}
             className={styles.button}
           >
-            {isLoading ? "Creating..." : "Create Demand"}
+            {createDemandStatus === "pending"
+              ? "Awaiting wallet signature..."
+              : createDemandStatus === "submitted"
+                ? "Waiting for confirmation..."
+                : isLoading
+                  ? "Creating..."
+                  : "Create Demand"}
           </button>
+
+          {createDemandStatus !== "idle" && (
+            <div className={styles.txLifecycleBox}>
+              <div className={styles.txLifecycleHeader}>
+                <strong>Create Demand Lifecycle:</strong>
+                <span
+                  className={`${styles.txStatusBadge} ${
+                    createDemandStatus === "confirmed"
+                      ? styles.txStatusSuccess
+                      : createDemandStatus === "failed"
+                        ? styles.txStatusFail
+                        : styles.txStatusPending
+                  }`}
+                >
+                  {createDemandStatus}
+                </span>
+              </div>
+
+              {latestTxHash && (
+                <p className={styles.txRow}>
+                  Tx Hash: {shortHash(latestTxHash)}{" "}
+                  {latestExplorerUrl && (
+                    <a href={latestExplorerUrl} target="_blank" rel="noopener noreferrer">
+                      view explorer
+                    </a>
+                  )}
+                </p>
+              )}
+
+              {latestBlockNumber && (
+                <p className={styles.txRow}>Block Number: {latestBlockNumber}</p>
+              )}
+
+              {latestTimestamp && (
+                <p className={styles.txRow}>Timestamp: {latestTimestamp}</p>
+              )}
+
+              {createDemandError && (
+                <p className={styles.txError}>Failure reason: {createDemandError}</p>
+              )}
+            </div>
+          )}
+
+          <div className={styles.txRecordsSection}>
+            <h3>Transaction Records</h3>
+            {txRecords.length === 0 ? (
+              <p className={styles.empty}>No transaction records yet</p>
+            ) : (
+              <div className={styles.txRecordsList}>
+                {txRecords.map((record) => (
+                  <div key={record.id} className={styles.txRecordCard}>
+                    <div className={styles.txRecordTop}>
+                      <span className={styles.txStep}>{record.step}</span>
+                      <span
+                        className={`${styles.txStatusBadge} ${
+                          record.status === "confirmed"
+                            ? styles.txStatusSuccess
+                            : record.status === "failed"
+                              ? styles.txStatusFail
+                              : styles.txStatusPending
+                        }`}
+                      >
+                        {record.status}
+                      </span>
+                    </div>
+                    <div className={styles.txRecordLine}>Tx: {shortHash(record.txHash)}</div>
+                    <div className={styles.txRecordLine}>Block: {record.blockNumber ?? "-"}</div>
+                    <div className={styles.txRecordLine}>Time: {record.timestamp || "-"}</div>
+                    <div className={styles.txRecordLine}>
+                      Explorer:{" "}
+                      {record.explorerUrl ? (
+                        <a href={record.explorerUrl} target="_blank" rel="noopener noreferrer">
+                          open
+                        </a>
+                      ) : (
+                        "-"
+                      )}
+                    </div>
+                    {record.error && <div className={styles.txError}>Error: {record.error}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Active Demands Section */}
