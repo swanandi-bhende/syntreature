@@ -148,9 +148,11 @@ async function main() {
   let marketAddr = ethers.ZeroAddress;
   let collateralTokenAddr = ethers.ZeroAddress;
   let priceFeedAddr = ethers.ZeroAddress;
-  const erc8004RegistryOrAdapterAddr =
+  let erc8004RegistryOrAdapterAddr =
     (process.env.ERC8004_REGISTRY_OR_ADAPTER_ADDRESS ?? process.env.CREDIT_REGISTRY_ADAPTER_ADDRESS ?? "").trim() ||
     ethers.ZeroAddress;
+  let erc8004RegistryAddr = (process.env.ERC8004_REGISTRY_ADDRESS ?? "").trim() || ethers.ZeroAddress;
+  const creditAgentId = Number(process.env.CREDIT_AGENT_ID ?? "") || 1;
 
   if (mode === "live-gmx") {
     positionRouterAddr = (process.env.GMX_POSITION_ROUTER_ADDRESS ?? "").trim();
@@ -195,6 +197,40 @@ async function main() {
     collateralTokenAddr = await wrapperCollateral.getAddress();
     marketAddr = deployer.address;
     console.log("Mock collateral deployed:", collateralTokenAddr);
+
+    const MockERC8004 = await ethers.getContractFactory("MockERC8004");
+    const mockRegistry = await MockERC8004.deploy();
+    await mockRegistry.waitForDeployment();
+    erc8004RegistryAddr = await mockRegistry.getAddress();
+
+    const registerAgentTx = await mockRegistry.registerAgent(
+      creditAgentId,
+      deployer.address,
+      "Wrapper credit linkage agent"
+    );
+    await registerAgentTx.wait();
+
+    const CreditScoreUpdater = await ethers.getContractFactory("CreditScoreUpdater");
+    const creditUpdater = await CreditScoreUpdater.deploy(erc8004RegistryAddr, gmxManagerAddr);
+    await creditUpdater.waitForDeployment();
+    erc8004RegistryOrAdapterAddr = await creditUpdater.getAddress();
+
+    const setRegistryTx = await gmxManager.setCreditRegistry(erc8004RegistryOrAdapterAddr, creditAgentId);
+    await setRegistryTx.wait();
+    const setModeTx = await gmxManager.setExecutionMode("wrapper");
+    await setModeTx.wait();
+
+    console.log("Mock ERC-8004 registry deployed:", erc8004RegistryAddr);
+    console.log("Credit updater deployed:", erc8004RegistryOrAdapterAddr);
+  }
+
+  if (mode === "live-gmx") {
+    if (isNonZeroAddress(erc8004RegistryOrAdapterAddr)) {
+      const setRegistryTx = await gmxManager.setCreditRegistry(erc8004RegistryOrAdapterAddr, creditAgentId);
+      await setRegistryTx.wait();
+    }
+    const setModeTx = await gmxManager.setExecutionMode("live-gmx");
+    await setModeTx.wait();
   }
 
   const shouldExecuteTradeFlow =
@@ -202,6 +238,11 @@ async function main() {
 
   let openTxHash: string | null = null;
   let closeTxHash: string | null = null;
+  let scoreUpdateTxHash: string | null = null;
+  let scoreUpdateBlockNumber: number | null = null;
+  let scoreBefore = Number(process.env.CREDIT_SCORE_BEFORE ?? "") || 0;
+  let scoreAfter = Number(process.env.CREDIT_SCORE_AFTER ?? "") || 0;
+  let linkagePositionKey: string | null = null;
 
   let positionSnapshot: PositionSnapshot = {
     key: null,
@@ -271,6 +312,7 @@ async function main() {
     const closeReceipt = await closeTx.wait();
     closeTxHash = closeTx.hash;
     console.log("closePosition tx:", closeTxHash);
+    linkagePositionKey = positionKey;
 
     let closePrice: string | null = null;
     if (closeReceipt) {
@@ -299,6 +341,29 @@ async function main() {
       closePrice,
       realizedPnl: closedPosition.pnl.toString(),
     };
+
+    // Indirect model trace: close tx -> queued update -> separate score update tx
+    if (isNonZeroAddress(erc8004RegistryOrAdapterAddr)) {
+      const applyOnRun = (process.env.APPLY_CREDIT_UPDATE_ON_RUN ?? "true").toLowerCase() !== "false";
+      if (applyOnRun) {
+        if (!scoreBefore) {
+          // Deterministic default for wrapper path where mock registry initializes at 300 on register
+          scoreBefore = mode === "testnet-wrapper" ? 300 : scoreBefore;
+        }
+
+        const CreditScoreUpdater = await ethers.getContractFactory("CreditScoreUpdater");
+        const updater = CreditScoreUpdater.attach(erc8004RegistryOrAdapterAddr);
+        const scoreTx = await updater.applyQueuedUpdate(positionKey, scoreBefore);
+        const scoreReceipt = await scoreTx.wait();
+        scoreUpdateTxHash = scoreTx.hash;
+        scoreUpdateBlockNumber = scoreReceipt?.blockNumber ? Number(scoreReceipt.blockNumber) : null;
+
+        // Deterministic policy from contract: profitable +25, loss -25, flat 0
+        const pnlValue = BigInt(closedPosition.pnl.toString());
+        const appliedDelta = pnlValue > 0n ? 25 : pnlValue < 0n ? -25 : 0;
+        scoreAfter = Math.max(0, Math.min(1000, scoreBefore + appliedDelta));
+      }
+    }
   } else {
     console.log("\n2) Skipping live position execution (set LIVE_EXECUTE_POSITION_FLOW=true to execute open/close).");
   }
@@ -306,12 +371,14 @@ async function main() {
   const openEvidence = await buildTxEvidence(openTxHash);
   const closeEvidence = await buildTxEvidence(closeTxHash);
   const positionKey = positionSnapshot.key;
-  const scoreUpdateTxHash = (process.env.SCORE_UPDATE_TX_HASH ?? "").trim() || closeEvidence.txHash;
-  const scoreUpdateBlockNumber =
-    Number(process.env.SCORE_UPDATE_BLOCK_NUMBER ?? "") || closeEvidence.blockNumber || 0;
-  const scoreBefore = Number(process.env.CREDIT_SCORE_BEFORE ?? "") || 0;
-  const scoreAfter = Number(process.env.CREDIT_SCORE_AFTER ?? "") || 0;
-  const configuredAgentId = Number(process.env.CREDIT_AGENT_ID ?? "") || 1;
+  const resolvedScoreUpdateTxHash =
+    scoreUpdateTxHash ||
+    ((process.env.SCORE_UPDATE_TX_HASH ?? "").trim() || closeEvidence.txHash);
+  const resolvedScoreUpdateBlockNumber =
+    scoreUpdateBlockNumber ||
+    Number(process.env.SCORE_UPDATE_BLOCK_NUMBER ?? "") ||
+    closeEvidence.blockNumber ||
+    0;
   const generatedAt = new Date().toISOString();
   const scriptVersion = getScriptVersion();
   const evidenceComplete = Boolean(
@@ -348,6 +415,7 @@ async function main() {
       GMXPositionRouter: positionRouterAddr,
       GMXExchangeRouter: exchangeRouterAddr,
       ERC8004RegistryOrAdapter: erc8004RegistryOrAdapterAddr,
+      ERC8004Registry: erc8004RegistryAddr,
       Market: marketAddr,
       CollateralToken: collateralTokenAddr,
       PriceFeed: priceFeedAddr,
@@ -358,29 +426,50 @@ async function main() {
       position: positionSnapshot,
     },
     creditScoreEvidence: {
-      agentId: configuredAgentId,
-      scoreUpdateTxHash,
-      scoreUpdateBlockNumber,
+      model: "indirect",
+      agentId: creditAgentId,
+      scoreUpdateTxHash: resolvedScoreUpdateTxHash,
+      scoreUpdateBlockNumber: resolvedScoreUpdateBlockNumber,
       scoreBefore,
       scoreAfter,
       updateReason: `trade_result_position_key_${positionKey ?? "unknown"}`,
-      linkagePositionKey: positionKey,
+      linkagePositionKey: linkagePositionKey ?? positionKey,
       closeTxHash: closeEvidence.txHash,
+      tradeId: linkagePositionKey ?? positionKey,
+      scoreDeltaPolicy: {
+        profitableClose: "+25",
+        lossClose: "-25",
+        noCloseOrFlat: "0",
+      },
     },
     explorerLinks: {
       openTx: openEvidence.txHash && explorerBase ? `${explorerBase}/tx/${openEvidence.txHash}` : null,
       closeTx: closeEvidence.txHash && explorerBase ? `${explorerBase}/tx/${closeEvidence.txHash}` : null,
-      scoreUpdateTx: scoreUpdateTxHash && explorerBase ? `${explorerBase}/tx/${scoreUpdateTxHash}` : null,
+      scoreUpdateTx:
+        resolvedScoreUpdateTxHash && explorerBase
+          ? `${explorerBase}/tx/${resolvedScoreUpdateTxHash}`
+          : null,
       contracts: {
         GMXPositionManager: explorerBase ? `${explorerBase}/address/${gmxManagerAddr}` : null,
         GMXPositionRouter: isNonZeroAddress(positionRouterAddr)
-          ? `${explorerBase}/address/${positionRouterAddr}`
+          ? explorerBase
+            ? `${explorerBase}/address/${positionRouterAddr}`
+            : null
           : null,
         GMXExchangeRouter: isNonZeroAddress(exchangeRouterAddr)
-          ? `${explorerBase}/address/${exchangeRouterAddr}`
+          ? explorerBase
+            ? `${explorerBase}/address/${exchangeRouterAddr}`
+            : null
           : null,
         ERC8004RegistryOrAdapter: isNonZeroAddress(erc8004RegistryOrAdapterAddr)
-          ? `${explorerBase}/address/${erc8004RegistryOrAdapterAddr}`
+          ? explorerBase
+            ? `${explorerBase}/address/${erc8004RegistryOrAdapterAddr}`
+            : null
+          : null,
+        ERC8004Registry: isNonZeroAddress(erc8004RegistryAddr)
+          ? explorerBase
+            ? `${explorerBase}/address/${erc8004RegistryAddr}`
+            : null
           : null,
       },
     },

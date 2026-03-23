@@ -137,18 +137,73 @@ Verification summary:
 - All 3 transaction pages resolve on Status Sepolia explorer.
 - Each transaction is marked Success and shows gas price 0 Gwei on explorer.
 
-### Arbitrum Sepolia Proofs (2026-03-22)
+### bond.credit Live Proof Pack
 
-Deployment artifact:
-- [deployments/arbitrum-deployment.json](deployments/arbitrum-deployment.json)
+This section contains only live GMX onchain evidence.
 
-Test trade tx evidence (from deployment run logs):
-- openPosition (test): [0xe23f11a5a7bc0c004cad2143f6f742734a42145e25ebda0a08a97e0aca54042b](https://sepolia.arbiscan.io/tx/0xe23f11a5a7bc0c004cad2143f6f742734a42145e25ebda0a08a97e0aca54042b)
-- closePosition (test): [0x4cca656ec970dce400c00cccdbc5c35c8dbb1e0917e773496d77351873e759dd](https://sepolia.arbiscan.io/tx/0x4cca656ec970dce400c00cccdbc5c35c8dbb1e0917e773496d77351873e759dd)
+Testnet wrapper runs are excluded from this proof pack.
 
-Verification summary:
-- Arbitrum deployment metadata exists and includes network, chainId, and contracts.
-- GMXPositionManager deployment and test open/close flow completed on Arbitrum Sepolia.
+Primary live artifact:
+- [deployments/arbitrum-deployment.live.json](deployments/arbitrum-deployment.live.json)
+
+Required evidence table:
+
+| Evidence Item | Value Source | Verification |
+| --- | --- | --- |
+| Open tx hash | `tradeEvidence.openPosition.txHash` in [deployments/arbitrum-deployment.live.json](deployments/arbitrum-deployment.live.json) | `explorerLinks.openTx` resolves and `tradeEvidence.openPosition.status == 1` |
+| Open tx timestamp | `tradeEvidence.openPosition.blockTimestamp` in [deployments/arbitrum-deployment.live.json](deployments/arbitrum-deployment.live.json) | Timestamp is inside hackathon window |
+| Close tx hash | `tradeEvidence.closePosition.txHash` in [deployments/arbitrum-deployment.live.json](deployments/arbitrum-deployment.live.json) | `explorerLinks.closeTx` resolves and `tradeEvidence.closePosition.status == 1` |
+| Close tx timestamp | `tradeEvidence.closePosition.blockTimestamp` in [deployments/arbitrum-deployment.live.json](deployments/arbitrum-deployment.live.json) | Timestamp is inside hackathon window |
+| Position key + market + side + size | `tradeEvidence.position.key`, `tradeEvidence.position.market`, `tradeEvidence.position.isLong`, `tradeEvidence.position.sizeDeltaUsd` | Values are consistent across open/close evidence and linkage fields |
+| ERC-8004 score update tx hash | `creditScoreEvidence.scoreUpdateTxHash` in [deployments/arbitrum-deployment.live.json](deployments/arbitrum-deployment.live.json) | `explorerLinks.scoreUpdateTx` resolves |
+| Artifact file | [deployments/arbitrum-deployment.live.json](deployments/arbitrum-deployment.live.json) | Contains `proofType = bond-credit-live-gmx` |
+
+Replay commands:
+
+```bash
+# 1) Run live mode (Arbitrum One)
+DEPLOY_MODE=live-gmx \
+GMX_POSITION_ROUTER_ADDRESS=<0x...> \
+GMX_EXCHANGE_ROUTER_ADDRESS=<0x...> \
+GMX_MARKET_ADDRESS=<0x...> \
+GMX_COLLATERAL_TOKEN_ADDRESS=<0x...> \
+ETH_PRICE_FEED_ADDRESS=<0x...> \
+ERC8004_REGISTRY_OR_ADAPTER_ADDRESS=<0x...> \
+LIVE_EXECUTE_POSITION_FLOW=true \
+npx hardhat run scripts/deployArbitrum.ts --network arbitrum
+
+# 2) Print artifact
+cat deployments/arbitrum-deployment.live.json
+
+# 3) Verify required fields
+jq '{proofType,network,chainId,mode,generatedAt,deployer,tradeEvidence,creditScoreEvidence,explorerLinks}' deployments/arbitrum-deployment.live.json
+jq '.tradeEvidence.openPosition.status, .tradeEvidence.closePosition.status' deployments/arbitrum-deployment.live.json
+jq '.tradeEvidence.position.key, .creditScoreEvidence.updateReason, .creditScoreEvidence.linkagePositionKey' deployments/arbitrum-deployment.live.json
+grep -E '"proofType"|"scoreUpdateTxHash"|"linkagePositionKey"' deployments/arbitrum-deployment.live.json
+```
+
+Validation checklist:
+- openPosition and closePosition statuses are both `1`.
+- Open and close timestamps are inside the hackathon window.
+- The same position key appears across trade evidence and credit linkage fields.
+- `creditScoreEvidence.updateReason` references the same position key / trade linkage id.
+
+ERC-8004 linkage model:
+- Model used: **Indirect**.
+- Traceability path: `close tx -> TradeResultFinalized + CreditUpdateRequested -> score update tx`.
+- Shared linkage id: `tradeEvidence.position.key` equals `creditScoreEvidence.linkagePositionKey` (and `creditScoreEvidence.tradeId`).
+
+Deterministic score delta policy:
+- profitable close: `+25`
+- loss close: `-25`
+- no close / flat close: `0`
+
+### Non-qualifying testnet runs
+
+This subsection documents wrapper/testnet execution and is not part of the live proof pack.
+
+- Wrapper artifact: [deployments/arbitrum-deployment.testnet.json](deployments/arbitrum-deployment.testnet.json)
+- Compatibility copy: [deployments/arbitrum-deployment.json](deployments/arbitrum-deployment.json)
 
 ---
 

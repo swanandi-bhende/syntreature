@@ -3,13 +3,13 @@
   "network": "hardhat",
   "chainId": 31337,
   "mode": "testnet-wrapper",
-  "generatedAt": "2026-03-23T05:09:44.958Z",
+  "generatedAt": "2026-03-23T05:17:13.036Z",
   "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  "scriptVersion": "f955b51",
+  "scriptVersion": "55019b3",
   "proofManifest": {
     "proofType": "bond-credit-live-gmx",
-    "generatedAt": "2026-03-23T05:09:44.958Z",
-    "scriptVersion": "f955b51",
+    "generatedAt": "2026-03-23T05:17:13.036Z",
+    "scriptVersion": "55019b3",
     "network": "hardhat",
     "chainId": 31337,
     "evidenceComplete": true
@@ -23,24 +23,25 @@
     "GMXPositionManager": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
     "GMXPositionRouter": "0x0000000000000000000000000000000000000000",
     "GMXExchangeRouter": "0x0000000000000000000000000000000000000000",
-    "ERC8004RegistryOrAdapter": "0x0000000000000000000000000000000000000000",
+    "ERC8004RegistryOrAdapter": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+    "ERC8004Registry": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
     "Market": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
     "CollateralToken": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
     "PriceFeed": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
   },
   "tradeEvidence": {
     "openPosition": {
-      "txHash": "0x8892b1eb03ed200b1754c1ccbdd1e370cdc332f13d403d5e01b438f16ead5101",
-      "blockNumber": 4,
-      "blockTimestamp": 1774242588,
+      "txHash": "0x82218b48fcb6c7d8435ca231844cd904a9ad31299bfecbf6f5a253dd16fc8844",
+      "blockNumber": 9,
+      "blockTimestamp": 1774243041,
       "gasUsed": "296495",
       "status": 1
     },
     "closePosition": {
-      "txHash": "0xa398df68089efce622c79d5be934dc8fd8b8e3fd94403f5c42326338e8947508",
-      "blockNumber": 5,
-      "blockTimestamp": 1774242589,
-      "gasUsed": "118159",
+      "txHash": "0x8c4f7a67cfe482d85fd7eaefd483b2fc49637a117a04bc4a0d77a127dab6aadf",
+      "blockNumber": 10,
+      "blockTimestamp": 1774243042,
+      "gasUsed": "219902",
       "status": 1
     },
     "position": {
@@ -56,14 +57,21 @@
     }
   },
   "creditScoreEvidence": {
+    "model": "indirect",
     "agentId": 1,
-    "scoreUpdateTxHash": "0xa398df68089efce622c79d5be934dc8fd8b8e3fd94403f5c42326338e8947508",
-    "scoreUpdateBlockNumber": 5,
-    "scoreBefore": 0,
-    "scoreAfter": 0,
+    "scoreUpdateTxHash": "0xa2081d73371e6298369a0ce2cf454251de90a20cabf2c8a60b96c08cc3251304",
+    "scoreUpdateBlockNumber": 11,
+    "scoreBefore": 300,
+    "scoreAfter": 300,
     "updateReason": "trade_result_position_key_0xbc9aca8d1cdee21b07d8ada8cae995276624f0ba2803310e593abbfd395f7c5e",
     "linkagePositionKey": "0xbc9aca8d1cdee21b07d8ada8cae995276624f0ba2803310e593abbfd395f7c5e",
-    "closeTxHash": "0xa398df68089efce622c79d5be934dc8fd8b8e3fd94403f5c42326338e8947508"
+    "closeTxHash": "0x8c4f7a67cfe482d85fd7eaefd483b2fc49637a117a04bc4a0d77a127dab6aadf",
+    "tradeId": "0xbc9aca8d1cdee21b07d8ada8cae995276624f0ba2803310e593abbfd395f7c5e",
+    "scoreDeltaPolicy": {
+      "profitableClose": "+25",
+      "lossClose": "-25",
+      "noCloseOrFlat": "0"
+    }
   },
   "explorerLinks": {
     "openTx": null,
@@ -73,7 +81,8 @@
       "GMXPositionManager": null,
       "GMXPositionRouter": null,
       "GMXExchangeRouter": null,
-      "ERC8004RegistryOrAdapter": null
+      "ERC8004RegistryOrAdapter": null,
+      "ERC8004Registry": null
     }
   },
   "notes": [

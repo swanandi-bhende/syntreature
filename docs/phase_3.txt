@@ -183,6 +183,8 @@ profitable close: +X
 loss close: -Y
 no close / timeout: Z
 This makes the update explainable and non-arbitrary.
+
+
 6) Acceptance test checklist before you mark Phase 3 done
 
 Script-level:
