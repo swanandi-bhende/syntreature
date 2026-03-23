@@ -1,64 +1,72 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=Source+Sans+3:wght@400;500;600;700&display=swap");
 
 .container {
-  --dark: #352c30;
-  --light: #ceccce;
-  --radius-xl: 16px;
-  --radius-lg: 12px;
+  --ink: #352c30;
+  --paper: #ceccce;
+  --accent: #8f3a2e;
+  --panel: #f4f2ef;
+  --radius-xl: 20px;
+  --radius-lg: 14px;
   --radius-md: 10px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  color: var(--dark);
-  font-family: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
-  background: var(--light);
+  color: var(--ink);
+  font-family: "Source Sans 3", "Avenir Next", "Segoe UI", sans-serif;
+  background: linear-gradient(180deg, #f8f6f3 0%, #f1efec 100%);
 }
 
 .header {
-  padding: 40px 24px 24px;
-  border-bottom: 1px solid rgba(53, 44, 48, 0.24);
+  width: min(1160px, 100%);
+  margin: 0 auto;
+  padding: 40px 24px 26px;
+  border-bottom: 1px solid rgba(53, 44, 48, 0.15);
 }
 
 .header h1 {
   margin: 0;
-  font-size: clamp(2rem, 4vw, 3rem);
-  line-height: 1.1;
-  font-weight: 700;
-  color: var(--dark);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 0.98;
+  letter-spacing: 0.01em;
+  color: #1f1a1c;
 }
 
 .header p {
-  margin: 8px 0 0;
-  font-size: 1rem;
-  color: rgba(53, 44, 48, 0.85);
+  margin: 10px 0 0;
+  font-size: 1.08rem;
+  color: rgba(53, 44, 48, 0.78);
 }
 
 .main {
-  width: min(1200px, 100%);
+  width: min(1160px, 100%);
   margin: 0 auto;
-  padding: 20px;
+  padding: 18px 24px 28px;
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .section {
-  background: rgba(206, 204, 206, 0.78);
-  border: 1px solid rgba(53, 44, 48, 0.22);
+  background: var(--panel);
+  border: 1px solid rgba(53, 44, 48, 0.14);
   border-radius: var(--radius-xl);
-  padding: 20px;
+  padding: 22px;
 }
 
 .section h2 {
   margin: 0 0 14px;
   padding-bottom: 10px;
-  border-bottom: 1px solid rgba(53, 44, 48, 0.22);
-  font-size: 1.4rem;
-  color: var(--dark);
+  border-bottom: 1px solid rgba(53, 44, 48, 0.13);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: clamp(1.7rem, 3.2vw, 2.45rem);
+  font-weight: 600;
+  line-height: 1.05;
+  color: #231d20;
 }
 
 .label {
-  color: rgba(53, 44, 48, 0.92);
   font-weight: 600;
+  color: rgba(53, 44, 48, 0.9);
 }
 
 .walletActionsRow {
@@ -74,29 +82,31 @@
   min-height: 44px;
   padding: 0 16px;
   border-radius: 10px;
-  border: 1px solid var(--dark);
-  font-family: inherit;
-  font-size: 0.95rem;
+  border: 1px solid rgba(53, 44, 48, 0.25);
+  font-family: "Source Sans 3", sans-serif;
+  font-size: 0.98rem;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.18s ease;
+  transition: transform 0.16s ease, opacity 0.16s ease;
 }
 
 .button,
 .buttonSecondary {
-  background: var(--dark);
-  color: var(--light);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 .buttonGhost {
   background: transparent;
-  color: var(--dark);
+  color: var(--ink);
 }
 
 .button:hover:not(:disabled),
 .buttonSecondary:hover:not(:disabled),
 .buttonGhost:hover:not(:disabled) {
-  opacity: 0.86;
+  transform: translateY(-1px);
+  opacity: 0.92;
 }
 
 .button:disabled,
@@ -117,8 +127,8 @@
 .guardrailBox,
 .connectError {
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(53, 44, 48, 0.18);
-  background: rgba(206, 204, 206, 0.92);
+  border: 1px solid rgba(53, 44, 48, 0.14);
+  background: #fbfaf8;
   padding: 14px;
 }
 
@@ -152,30 +162,36 @@
 }
 
 .chip {
-  min-height: 40px;
+  min-height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   border-radius: 999px;
-  padding: 6px 14px;
-  border: 1px solid rgba(53, 44, 48, 0.28);
-  font-size: 0.9rem;
+  padding: 5px 14px;
+  border: 1px solid rgba(53, 44, 48, 0.22);
+  font-size: 0.88rem;
   font-weight: 600;
-  color: var(--dark);
-  background: rgba(206, 204, 206, 0.92);
+  color: var(--ink);
+  background: #faf8f5;
 }
 
-.chipPass,
-.chipWarn,
+.chipPass {
+  background: rgba(53, 44, 48, 0.09);
+}
+
+.chipWarn {
+  background: rgba(143, 58, 46, 0.11);
+}
+
 .chipFail {
-  border-color: var(--dark);
+  background: rgba(143, 58, 46, 0.16);
 }
 
 .connectError,
 .guardrailBox,
 .txError {
-  color: var(--dark);
+  color: var(--ink);
 }
 
 .guardrailBox h3,
@@ -186,39 +202,41 @@
 .demandHeader h3,
 .chain h3 {
   margin: 0;
-  color: var(--dark);
+  font-family: "Cormorant Garamond", Georgia, serif;
   font-weight: 600;
+  color: #221c1f;
 }
 
 .guardrailList,
 .judgeFlowList {
   margin: 8px 0 0;
   padding-left: 20px;
-  line-height: 1.5;
+  line-height: 1.52;
 }
 
 .textarea {
   width: 100%;
-  min-height: 160px;
+  min-height: 170px;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(53, 44, 48, 0.26);
-  background: rgba(206, 204, 206, 0.96);
-  color: var(--dark);
-  padding: 12px;
-  font-family: inherit;
-  font-size: 0.96rem;
+  border: 1px solid rgba(53, 44, 48, 0.2);
+  background: #fffdfb;
+  color: var(--ink);
+  padding: 13px;
+  font-family: "Source Sans 3", sans-serif;
+  font-size: 0.98rem;
   line-height: 1.55;
   resize: vertical;
 }
 
 .textarea::placeholder {
-  color: rgba(53, 44, 48, 0.6);
+  color: rgba(53, 44, 48, 0.58);
+  font-style: italic;
 }
 
 .textarea:focus {
   outline: none;
-  border-color: var(--dark);
-  box-shadow: 0 0 0 2px rgba(53, 44, 48, 0.12);
+  border-color: rgba(53, 44, 48, 0.45);
+  box-shadow: 0 0 0 2px rgba(53, 44, 48, 0.08);
 }
 
 .txLifecycleHeader,
@@ -240,26 +258,39 @@
   align-items: center;
   justify-content: center;
   text-transform: uppercase;
-  font-size: 0.72rem;
+  font-size: 0.71rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  border: 1px solid var(--dark);
+  border: 1px solid rgba(53, 44, 48, 0.25);
 }
 
 .txStatusPending,
+.judgePending {
+  background: rgba(53, 44, 48, 0.12);
+  color: var(--ink);
+}
+
 .txStatusSuccess,
-.txStatusFail,
-.judgePending,
 .judgePass,
+.judgeSummaryPass {
+  background: rgba(53, 44, 48, 0.22);
+  color: #1f191c;
+}
+
+.txStatusFail,
 .judgeFail,
-.judgeSummaryPass,
 .judgeSummaryFail {
-  background: var(--dark);
-  color: var(--light);
+  background: rgba(143, 58, 46, 0.16);
+  color: #4e211b;
 }
 
 .txRecordsSection {
   margin-top: 12px;
+}
+
+.txStep {
+  font-weight: 700;
+  text-transform: capitalize;
 }
 
 .txRecordLine,
@@ -270,7 +301,7 @@
 .judgeTxRow,
 .chain p,
 .footer p {
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   line-height: 1.5;
 }
 
@@ -285,11 +316,15 @@
 .status {
   border-radius: 999px;
   padding: 4px 10px;
-  border: 1px solid rgba(53, 44, 48, 0.36);
-  background: rgba(206, 204, 206, 0.94);
+  border: 1px solid rgba(53, 44, 48, 0.24);
+  background: rgba(53, 44, 48, 0.09);
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--dark);
+  color: var(--ink);
+}
+
+.description {
+  color: rgba(53, 44, 48, 0.86);
 }
 
 .demandDetails {
@@ -302,7 +337,7 @@
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  border-top: 1px solid rgba(53, 44, 48, 0.18);
+  border-top: 1px solid rgba(53, 44, 48, 0.11);
   padding-top: 6px;
 }
 
@@ -312,7 +347,7 @@
 }
 
 .statusItem span:first-child {
-  color: rgba(53, 44, 48, 0.76);
+  color: rgba(53, 44, 48, 0.7);
   font-size: 0.84rem;
 }
 
@@ -327,14 +362,14 @@
   gap: 8px;
   padding: 10px;
   border-radius: 10px;
-  border: 1px solid rgba(53, 44, 48, 0.2);
-  background: rgba(206, 204, 206, 0.94);
+  border: 1px solid rgba(53, 44, 48, 0.13);
+  background: #fffdfb;
 }
 
 .judgeSummary {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid rgba(53, 44, 48, 0.2);
+  border-top: 1px solid rgba(53, 44, 48, 0.13);
 }
 
 .judgeSummaryPass,
@@ -355,8 +390,8 @@
   margin: 0;
   padding: 10px;
   border-radius: 10px;
-  border: 1px dashed rgba(53, 44, 48, 0.32);
-  color: rgba(53, 44, 48, 0.8);
+  border: 1px dashed rgba(53, 44, 48, 0.25);
+  color: rgba(53, 44, 48, 0.7);
 }
 
 .chain code {
@@ -364,30 +399,35 @@
   margin-top: 8px;
   border-radius: 8px;
   padding: 8px;
-  border: 1px solid rgba(53, 44, 48, 0.2);
-  background: rgba(206, 204, 206, 0.96);
-  color: var(--dark);
+  border: 1px solid rgba(53, 44, 48, 0.15);
+  background: #fffdfb;
+  color: var(--ink);
   overflow-x: auto;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
 }
 
 .section a,
 .footer a {
-  color: var(--dark);
+  color: var(--accent);
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
 }
 
 .footer {
-  margin-top: 8px;
-  padding: 16px 24px 20px;
-  border-top: 1px solid rgba(53, 44, 48, 0.24);
-  color: var(--dark);
+  width: min(1160px, 100%);
+  margin: 8px auto 0;
+  padding: 14px 24px 22px;
+  border-top: 1px solid rgba(53, 44, 48, 0.14);
+  color: rgba(53, 44, 48, 0.9);
 }
 
 @media (max-width: 1000px) {
+  .header {
+    padding: 30px 16px 20px;
+  }
+
   .main {
-    padding: 14px;
+    padding: 14px 16px 24px;
   }
 
   .section {
@@ -402,12 +442,17 @@
 }
 
 @media (max-width: 760px) {
-  .header {
-    padding: 28px 14px 18px;
-  }
-
   .statusChips,
   .judgeTxRow {
     grid-template-columns: 1fr;
+  }
+
+  .txLifecycleHeader,
+  .txRecordTop,
+  .demandHeader,
+  .judgeChecklistRow,
+  .validationRow {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
