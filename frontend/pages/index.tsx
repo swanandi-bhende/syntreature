@@ -104,6 +104,7 @@ export default function Home() {
   const [latestTimestamp, setLatestTimestamp] = useState("");
   const [txRecords, setTxRecords] = useState<TxRecord[]>([]);
   const [proofLinkOpened, setProofLinkOpened] = useState(false);
+  const [hasApprovedConnection, setHasApprovedConnection] = useState(false);
 
   const statusSepoliaChainId = NETWORKS.statusSepolia.chainId;
   const arbitrumSepoliaChainId = NETWORKS.arbitrumSepolia.chainId;
@@ -258,7 +259,12 @@ export default function Home() {
     setChainName("Not connected");
   };
 
-  const syncWalletState = async (browserProvider: ethers.BrowserProvider) => {
+  const syncWalletState = async (
+    browserProvider: ethers.BrowserProvider,
+    options?: { allowAutoConnect?: boolean }
+  ) => {
+    const allowAutoConnect = options?.allowAutoConnect ?? false;
+
     try {
       const accounts = (await browserProvider.send("eth_accounts", [])) as string[];
       const network = await browserProvider.getNetwork();
@@ -270,6 +276,14 @@ export default function Home() {
 
       if (accounts.length === 0) {
         applyDisconnectedState();
+        return;
+      }
+
+      if (!allowAutoConnect && !hasApprovedConnection) {
+        // Keep the app in read-only mode until user explicitly connects.
+        setSigner(null);
+        setWalletAddress("");
+        setIsConnected(false);
         return;
       }
 
@@ -291,7 +305,11 @@ export default function Home() {
     try {
       const browserProvider = getProvider();
       await browserProvider.send("eth_requestAccounts", []);
-      await syncWalletState(browserProvider);
+      setHasApprovedConnection(true);
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem("syntreature.wallet.approved", "true");
+      }
+      await syncWalletState(browserProvider, { allowAutoConnect: true });
     } catch (error) {
       setConnectError(error instanceof Error ? error.message : "Wallet connection failed.");
     }
@@ -312,7 +330,7 @@ export default function Home() {
         params: [{ chainId: chainHex }],
       });
       const browserProvider = provider || getProvider();
-      await syncWalletState(browserProvider);
+      await syncWalletState(browserProvider, { allowAutoConnect: true });
     } catch (error) {
       const addChainCode = 4902;
       const errorCode = (error as { code?: number })?.code;
@@ -336,7 +354,7 @@ export default function Home() {
             ],
           });
           const browserProvider = provider || getProvider();
-          await syncWalletState(browserProvider);
+          await syncWalletState(browserProvider, { allowAutoConnect: true });
           return;
         } catch (addError) {
           setConnectError(
@@ -352,6 +370,10 @@ export default function Home() {
 
   const disconnectWallet = () => {
     setConnectError("");
+    setHasApprovedConnection(false);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem("syntreature.wallet.approved");
+    }
     applyDisconnectedState();
   };
 
@@ -364,8 +386,12 @@ export default function Home() {
   useEffect(() => {
     if (!window.ethereum) return;
 
+    const approvedFromSession =
+      window.sessionStorage.getItem("syntreature.wallet.approved") === "true";
+    setHasApprovedConnection(approvedFromSession);
+
     const browserProvider = getProvider();
-    void syncWalletState(browserProvider);
+    void syncWalletState(browserProvider, { allowAutoConnect: approvedFromSession });
 
     const handleAccountsChanged = (accountsValue: unknown) => {
       const accounts = Array.isArray(accountsValue) ? (accountsValue as string[]) : [];
@@ -374,11 +400,15 @@ export default function Home() {
         return;
       }
 
-      void syncWalletState(browserProvider);
+      setHasApprovedConnection(true);
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem("syntreature.wallet.approved", "true");
+      }
+      void syncWalletState(browserProvider, { allowAutoConnect: true });
     };
 
     const handleChainChanged = () => {
-      void syncWalletState(browserProvider);
+      void syncWalletState(browserProvider, { allowAutoConnect: hasApprovedConnection });
     };
 
     window.ethereum.on("accountsChanged", handleAccountsChanged);
@@ -388,7 +418,7 @@ export default function Home() {
       window.ethereum?.removeListener("accountsChanged", handleAccountsChanged);
       window.ethereum?.removeListener("chainChanged", handleChainChanged);
     };
-  }, []);
+  }, [hasApprovedConnection]);
 
   useEffect(() => {
     if (isConnected && !isCorrectNetwork) {
