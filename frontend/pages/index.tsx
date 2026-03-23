@@ -38,10 +38,43 @@ export default function Home() {
   const [connectError, setConnectError] = useState("");
 
   const statusSepoliaChainId = NETWORKS.statusSepolia.chainId;
+  const arbitrumSepoliaChainId = NETWORKS.arbitrumSepolia.chainId;
   const expectedAgentAddress = (process.env.NEXT_PUBLIC_AGENT_ADDRESS || "").toLowerCase();
+  const escrowAddressStatus = process.env.NEXT_PUBLIC_ESCROW_ADDRESS_STATUS || "";
+  const arbiterAddressStatus = process.env.NEXT_PUBLIC_ARBITER_ADDRESS_STATUS || "";
+  const gmxAddressArbitrum = process.env.NEXT_PUBLIC_GMX_ADDRESS_ARBITRUM || "";
   const isCorrectNetwork = chainId === statusSepoliaChainId;
   const isAuthorizedAgent =
     !!walletAddress && !!expectedAgentAddress && walletAddress.toLowerCase() === expectedAgentAddress;
+
+  const missingContractConfigs: string[] = [];
+  if (!escrowAddressStatus) missingContractConfigs.push("NEXT_PUBLIC_ESCROW_ADDRESS_STATUS");
+  if (!arbiterAddressStatus) missingContractConfigs.push("NEXT_PUBLIC_ARBITER_ADDRESS_STATUS");
+
+  const canAttemptWrite =
+    isConnected &&
+    !!signer &&
+    isCorrectNetwork &&
+    isAuthorizedAgent &&
+    missingContractConfigs.length === 0;
+
+  const guardrailReasons: string[] = [];
+  if (!isConnected) {
+    guardrailReasons.push("Connect wallet before write actions.");
+  }
+  if (isConnected && !isCorrectNetwork) {
+    guardrailReasons.push(
+      `Wrong network. Switch to ${NETWORKS.statusSepolia.name} (chainId ${statusSepoliaChainId}) for escrow write actions.`
+    );
+  }
+  if (isConnected && !isAuthorizedAgent) {
+    guardrailReasons.push("Wallet not authorized as agent for onlyAgent write actions.");
+  }
+  if (missingContractConfigs.length > 0) {
+    guardrailReasons.push(
+      `Missing contract address config: ${missingContractConfigs.join(", ")}.`
+    );
+  }
 
   const applyDisconnectedState = () => {
     setProvider(null);
@@ -189,6 +222,7 @@ export default function Home() {
   }, []);
 
   const handleCreateDemand = async () => {
+    if (!canAttemptWrite) return;
     if (!nlInput.trim()) return;
 
     setIsLoading(true);
@@ -228,6 +262,25 @@ export default function Home() {
       <main className={styles.main}>
         <section className={styles.section}>
           <h2>Wallet Execution Context</h2>
+          <div className={styles.requiredChains}>
+            <div>
+              <span className={styles.label}>Escrow flow chain:</span>
+              <span>
+                {NETWORKS.statusSepolia.name} ({statusSepoliaChainId})
+              </span>
+            </div>
+            <div>
+              <span className={styles.label}>GMX evidence chain:</span>
+              <span>
+                {NETWORKS.arbitrumSepolia.name} ({arbitrumSepoliaChainId})
+              </span>
+            </div>
+            <div>
+              <span className={styles.label}>GMX manager config:</span>
+              <span>{gmxAddressArbitrum ? "Present" : "Missing (read-only evidence will be limited)"}</span>
+            </div>
+          </div>
+
           <div className={styles.walletActionsRow}>
             <button onClick={connectWallet} className={styles.button}>
               Connect Wallet
@@ -281,6 +334,22 @@ export default function Home() {
         {/* Create Demand Section */}
         <section className={styles.section}>
           <h2>Create NL Demand</h2>
+          {!canAttemptWrite && (
+            <div className={styles.guardrailBox}>
+              <h3>Write Guardrails Active</h3>
+              <ul className={styles.guardrailList}>
+                {guardrailReasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+              {!isCorrectNetwork && isConnected && (
+                <button onClick={switchToStatusSepolia} className={styles.buttonSecondary}>
+                  Switch to Status Sepolia
+                </button>
+              )}
+            </div>
+          )}
+
           <textarea
             value={nlInput}
             onChange={(e) => setNlInput(e.target.value)}
@@ -290,7 +359,7 @@ export default function Home() {
           />
           <button
             onClick={handleCreateDemand}
-            disabled={isLoading}
+            disabled={isLoading || !canAttemptWrite || !nlInput.trim()}
             className={styles.button}
           >
             {isLoading ? "Creating..." : "Create Demand"}
