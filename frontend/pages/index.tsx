@@ -176,19 +176,6 @@ export default function Home() {
     setProofLinkOpened(true);
   };
 
-  const escrowAddressExplorerUrl =
-    ethers.isAddress(escrowAddressStatus)
-      ? toExplorerAddressUrl(statusSepoliaChainId, escrowAddressStatus)
-      : "";
-  const arbiterAddressExplorerUrl =
-    ethers.isAddress(arbiterAddressStatus)
-      ? toExplorerAddressUrl(statusSepoliaChainId, arbiterAddressStatus)
-      : "";
-  const gmxManagerExplorerUrl =
-    ethers.isAddress(gmxAddressArbitrum)
-      ? toExplorerAddressUrl(arbitrumSepoliaChainId, gmxAddressArbitrum)
-      : "";
-
   const hasCreateDemandSubmitted = txRecords.some(
     (record) =>
       record.step === "createDemand" && (record.status === "submitted" || record.status === "confirmed")
@@ -197,76 +184,21 @@ export default function Home() {
     (record) => record.step === "createDemand" && record.status === "confirmed"
   );
   const judgeChecklist = [
-    { key: "connect-wallet", label: "Connect wallet", passed: isConnected },
-    { key: "correct-chain", label: "Correct chain", passed: isCorrectNetwork },
+    { key: "connect-wallet", label: "Wallet connected", passed: isConnected },
+    { key: "correct-chain", label: "On Status Sepolia", passed: isCorrectNetwork },
     {
       key: "create-demand-submitted",
-      label: "Create demand tx submitted",
+      label: "Demand tx submitted",
       passed: hasCreateDemandSubmitted,
     },
     {
       key: "create-demand-confirmed",
-      label: "Create demand tx confirmed",
+      label: "Demand tx confirmed",
       passed: hasCreateDemandConfirmed,
     },
-    { key: "proof-link-opened", label: "Proof link opened", passed: proofLinkOpened },
+    { key: "proof-link-opened", label: "Proof verified", passed: proofLinkOpened },
   ];
   const judgePassed = judgeChecklist.every((item) => item.passed);
-
-  const latestTransactions = txRecords.slice(0, 5);
-
-  const validationChecks = [
-    {
-      key: "wrong-chain-guard",
-      label: "Wrong chain blocks writes with clear fix action",
-      passed:
-        !isConnected ||
-        isCorrectNetwork ||
-        (isConnected && !isCorrectNetwork && !canAttemptWrite),
-    },
-    {
-      key: "non-agent-disabled",
-      label: "Non-agent wallet clearly shown and write disabled",
-      passed:
-        !isConnected ||
-        isAuthorizedAgent ||
-        (isConnected && !isAuthorizedAgent && !canAttemptWrite),
-    },
-    {
-      key: "create-demand-confirmed",
-      label: "Create Demand creates real tx hash and confirmation",
-      passed:
-        hasCreateDemandConfirmed &&
-        txRecords.some(
-          (record) =>
-            record.step === "createDemand" &&
-            record.status === "confirmed" &&
-            !!record.txHash &&
-            record.txHash !== "awaiting-signature"
-        ),
-    },
-    {
-      key: "status-explorer-link",
-      label: "Explorer link opens correct Status explorer tx page",
-      passed: txRecords.some(
-        (record) =>
-          record.step === "createDemand" &&
-          !!record.explorerUrl &&
-          record.explorerUrl.startsWith(`${NETWORKS.statusSepolia.explorer}/tx/`)
-      ),
-    },
-    {
-      key: "judge-panel-present",
-      label: "Judge Demo Mode shows checklist, chain, contracts, latest txs, and pass/fail badges",
-      passed: true,
-    },
-  ];
-
-  const toJudgeStatus = (status: TxStatus) => {
-    if (status === "confirmed") return "success";
-    if (status === "failed") return "failed";
-    return "pending";
-  };
 
   const applyDisconnectedState = () => {
     setProvider(null);
@@ -300,7 +232,6 @@ export default function Home() {
       }
 
       if (!allowAutoConnect && !hasApprovedConnection) {
-        // Keep the app in read-only mode until user explicitly connects.
         setSigner(null);
         setWalletAddress("");
         setIsConnected(false);
@@ -415,9 +346,7 @@ export default function Home() {
     applyDisconnectedState();
   };
 
-  // Fetch user's demands on component mount
   useEffect(() => {
-    // In production: fetch from contract
     console.log("Fetching demands...");
   }, []);
 
@@ -597,465 +526,213 @@ export default function Home() {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h1>Syntreature Control Console</h1>
-        <p>Verifiable Agent Commerce on Status and Arbitrum</p>
+        <h1>Verifiable Agent Commerce</h1>
+        <p>Judge the proof of execution for AI-driven trading demands</p>
       </header>
 
       <main className={styles.main}>
-        <section className={styles.section}>
-          <h2>Wallet Execution Context</h2>
-          <div className={styles.requiredChains}>
-            <div>
-              <span className={styles.label}>Escrow flow chain:</span>
-              <span>
-                {NETWORKS.statusSepolia.name} ({statusSepoliaChainId})
-              </span>
-            </div>
-            <div>
-              <span className={styles.label}>GMX evidence chain:</span>
-              <span>
-                {NETWORKS.arbitrumSepolia.name} ({arbitrumSepoliaChainId})
-              </span>
-            </div>
-            <div>
-              <span className={styles.label}>GMX manager config:</span>
-              <span>{gmxAddressArbitrum ? "Present" : "Missing (read-only evidence will be limited)"}</span>
-            </div>
+        {/* Config Errors */}
+        {missingContractConfigs.length > 0 && (
+          <div className={styles.error}>
+            Missing configuration: {missingContractConfigs.join(", ")}
           </div>
+        )}
 
-          <div className={styles.walletActionsRow}>
-            <button onClick={connectWallet} className={styles.button}>
-              Connect Wallet
-            </button>
-            <button onClick={switchToStatusSepolia} className={styles.buttonSecondary}>
-              Switch to Status Sepolia
-            </button>
-            <button onClick={disconnectWallet} className={styles.buttonGhost}>
-              Disconnect
-            </button>
+        {connectError && (
+          <div className={styles.error}>
+            {connectError}
           </div>
+        )}
 
-          {connectError && <p className={styles.connectError}>{connectError}</p>}
+        {/* Proof Section */}
+        <div className={styles.proofSection}>
+          {/* Step 1: Connect & Create */}
+          <div className={styles.stepCard}>
+            <h2>1</h2>
+            <h3>Connect Wallet & Create Demand</h3>
 
-          <div className={styles.statusChips}>
-            <span className={`${styles.chip} ${isConnected ? styles.chipPass : styles.chipFail}`}>
-              Wallet: {isConnected ? "Connected" : "Not connected"}
-            </span>
-            <span className={`${styles.chip} ${isCorrectNetwork ? styles.chipPass : styles.chipWarn}`}>
-              Network: {isCorrectNetwork ? "Correct" : "Wrong"}
-            </span>
-            <span className={`${styles.chip} ${isAuthorizedAgent ? styles.chipPass : styles.chipWarn}`}>
-              Agent role: {isAuthorizedAgent ? "Authorized agent" : "Read-only wallet"}
-            </span>
-          </div>
+            <div className={styles.walletRow}>
+              <button
+                onClick={connectWallet}
+                disabled={isLoading || hasApprovedConnection}
+                className={styles.button}
+              >
+                {isConnected ? `Connected: ${shortHash(walletAddress)}` : "Connect Wallet"}
+              </button>
 
-          <div className={styles.walletMeta}>
-            <div>
-              <span className={styles.label}>Address:</span>
-              <span>{walletAddress || "-"}</span>
-            </div>
-            <div>
-              <span className={styles.label}>Chain ID:</span>
-              <span>{chainId ?? "-"}</span>
-            </div>
-            <div>
-              <span className={styles.label}>Chain:</span>
-              <span>{chainName}</span>
-            </div>
-            <div>
-              <span className={styles.label}>Supported chain:</span>
-              <span>{isSupportedChain(chainId) ? "Yes" : "No"}</span>
-            </div>
-            <div>
-              <span className={styles.label}>Signer Ready:</span>
-              <span>{signer ? "Yes" : "No"}</span>
-            </div>
-            <div>
-              <span className={styles.label}>Provider Ready:</span>
-              <span>{provider ? "Yes" : "No"}</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Create Demand Section */}
-        <section className={styles.section}>
-          <h2>Create NL Demand</h2>
-          {!canAttemptWrite && (
-            <div className={styles.guardrailBox}>
-              <h3>Write Guardrails Active</h3>
-              <ul className={styles.guardrailList}>
-                {guardrailReasons.map((reason) => (
-                  <li key={reason}>{reason}</li>
-                ))}
-              </ul>
-              {!isCorrectNetwork && isConnected && (
-                <button onClick={switchToStatusSepolia} className={styles.buttonSecondary}>
-                  Switch to Status Sepolia
+              {isConnected && (
+                <button onClick={disconnectWallet} className={styles.buttonGhost}>
+                  Disconnect
                 </button>
               )}
             </div>
-          )}
 
-          <textarea
-            value={nlInput}
-            onChange={(e) => setNlInput(e.target.value)}
-            placeholder="E.g., Lock 0.01 ETH and open long ETH on GMX if price > 3200 within 24h"
-            rows={4}
-            className={styles.textarea}
-          />
-          <button
-            onClick={handleCreateDemand}
-            disabled={isLoading || !canAttemptWrite || !nlInput.trim()}
-            className={styles.button}
-          >
-            {createDemandStatus === "pending"
-              ? "Awaiting wallet signature..."
-              : createDemandStatus === "submitted"
-                ? "Waiting for confirmation..."
-                : isLoading
-                  ? "Creating..."
-                  : "Create Demand"}
-          </button>
+            {!isCorrectNetwork && isConnected && (
+              <button onClick={switchToStatusSepolia} className={styles.buttonSecondary} style={{ width: "100%" }}>
+                Switch to Status Sepolia
+              </button>
+            )}
 
-          {createDemandStatus !== "idle" && (
-            <div className={styles.txLifecycleBox}>
-              <div className={styles.txLifecycleHeader}>
-                <strong>Create Demand Lifecycle:</strong>
-                <span
-                  className={`${styles.txStatusBadge} ${
-                    createDemandStatus === "confirmed"
-                      ? styles.txStatusSuccess
-                      : createDemandStatus === "failed"
-                        ? styles.txStatusFail
-                        : styles.txStatusPending
-                  }`}
-                >
-                  {createDemandStatus}
-                </span>
-              </div>
-
-              {latestTxHash && (
-                <p className={styles.txRow}>
-                  Tx Hash: {shortHash(latestTxHash)}{" "}
-                  {latestExplorerUrl && (
-                    <a
-                      href={latestExplorerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={markProofLinkOpened}
-                    >
-                      view explorer
-                    </a>
-                  )}
-                </p>
-              )}
-
-              {latestBlockNumber && (
-                <p className={styles.txRow}>Block Number: {latestBlockNumber}</p>
-              )}
-
-              {latestTimestamp && (
-                <p className={styles.txRow}>Timestamp: {latestTimestamp}</p>
-              )}
-
-              {createDemandError && (
-                <p className={styles.txError}>Failure reason: {createDemandError}</p>
-              )}
+            <div className={styles.demandStatus}>
+              <span className={`${styles.badge} ${isConnected ? styles.badgePass : ""}`}>
+                {isConnected ? "✓ Connected" : "○ Not connected"}
+              </span>
+              <span className={`${styles.badge} ${isCorrectNetwork ? styles.badgePass : styles.badgeWarn}`}>
+                {isCorrectNetwork ? "✓ Status Sepolia" : isConnected ? "✗ Wrong chain" : "○ Unknown"}
+              </span>
             </div>
-          )}
 
-          <div className={styles.txRecordsSection}>
-            <h3>Transaction Records</h3>
-            {txRecords.length === 0 ? (
-              <p className={styles.empty}>No transaction records yet</p>
-            ) : (
-              <div className={styles.txRecordsList}>
-                {txRecords.map((record) => (
-                  <div key={record.id} className={styles.txRecordCard}>
-                    <div className={styles.txRecordTop}>
-                      <span className={styles.txStep}>{record.step}</span>
-                      <span
-                        className={`${styles.txStatusBadge} ${
-                          record.status === "confirmed"
-                            ? styles.txStatusSuccess
-                            : record.status === "failed"
-                              ? styles.txStatusFail
-                              : styles.txStatusPending
-                        }`}
+            {canAttemptWrite && isConnected && (
+              <div>
+                <textarea
+                  value={nlInput}
+                  onChange={(e) => setNlInput(e.target.value)}
+                  placeholder="E.g., Lock 0.01 ETH and open long ETH on GMX if price > 3200 within 24h"
+                  className={styles.textarea}
+                />
+                <button
+                  onClick={handleCreateDemand}
+                  disabled={isLoading || !nlInput.trim()}
+                  className={styles.buttonLarge}
+                >
+                  {createDemandStatus === "pending"
+                    ? "Awaiting wallet signature..."
+                    : createDemandStatus === "submitted"
+                      ? "Waiting for confirmation..."
+                      : isLoading
+                        ? "Creating..."
+                        : "Create Demand"}
+                </button>
+              </div>
+            )}
+
+            {!canAttemptWrite && isConnected && (
+              <div className={styles.error}>
+                {guardrailReasons.map((reason) => (
+                  <div key={reason}>• {reason}</div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Step 2: Proof & Verification */}
+          <div className={styles.stepCard}>
+            <h2>2</h2>
+            <h3>Proof & Verification</h3>
+
+            {latestTxHash && (
+              <div className={styles.proofBox}>
+                <div className={styles.proofStatus}>
+                  <span
+                    className={`${styles.statusBadge} ${
+                      createDemandStatus === "confirmed"
+                        ? styles.statusConfirmed
+                        : styles.statusPending
+                    }`}
+                  >
+                    {createDemandStatus === "confirmed" ? "✓ Confirmed" : "⏳ Pending"}
+                  </span>
+                </div>
+
+                <div className={styles.proofDetail}>
+                  <label>Transaction Hash</label>
+                  <code>{latestTxHash}</code>
+                </div>
+
+                {latestBlockNumber && (
+                  <div className={styles.proofDetail}>
+                    <label>Block Number</label>
+                    <span>{latestBlockNumber}</span>
+                  </div>
+                )}
+
+                {latestTimestamp && (
+                  <div className={styles.proofDetail}>
+                    <label>Timestamp</label>
+                    <span>{latestTimestamp}</span>
+                  </div>
+                )}
+
+                {latestExplorerUrl && (
+                  <a
+                    href={latestExplorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={markProofLinkOpened}
+                    className={styles.explorerLink}
+                  >
+                    View on Explorer →
+                  </a>
+                )}
+
+                {createDemandError && (
+                  <div className={styles.error}>
+                    {createDemandError}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!latestTxHash && isConnected && canAttemptWrite && (
+              <div className={styles.proofBox} style={{ opacity: 0.5 }}>
+                <p style={{ margin: 0, color: "rgba(31, 26, 28, 0.6)", fontSize: "1.1rem" }}>
+                  Create a demand to see proof and verification details here.
+                </p>
+              </div>
+            )}
+
+            {txRecords.length > 0 && (
+              <div className={styles.txHistory}>
+                <label>Recent Transactions</label>
+                {txRecords.slice(0, 3).map((record) => (
+                  <div key={record.id} className={styles.txItem}>
+                    <span className={styles.txLabel}>{record.step}</span>
+                    <span className={styles.txStatus}>
+                      {record.status === "confirmed"
+                        ? "✓"
+                        : record.status === "failed"
+                          ? "✗"
+                          : "⏳"}
+                    </span>
+                    {record.explorerUrl && (
+                      <a
+                        href={record.explorerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={markProofLinkOpened}
+                        className={styles.txLink}
                       >
-                        {record.status}
-                      </span>
-                    </div>
-                    <div className={styles.txRecordLine}>Tx: {shortHash(record.txHash)}</div>
-                    <div className={styles.txRecordLine}>Block: {record.blockNumber ?? "-"}</div>
-                    <div className={styles.txRecordLine}>Time: {record.timestamp || "-"}</div>
-                    <div className={styles.txRecordLine}>
-                      Explorer:{" "}
-                      {record.explorerUrl ? (
-                        <a
-                          href={record.explorerUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={markProofLinkOpened}
-                        >
-                          open
-                        </a>
-                      ) : (
-                        "-"
-                      )}
-                    </div>
-                    {record.error && <div className={styles.txError}>Error: {record.error}</div>}
+                        explorer
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>
             )}
           </div>
-        </section>
+        </div>
 
-        <section className={styles.section}>
-          <h2>Judge Demo Mode</h2>
+        {/* Checklist Section */}
+        <div className={styles.checklistSection}>
+          <h2>Judge Verification Checklist</h2>
 
-          <div className={styles.judgeGrid}>
-            <div className={styles.judgeCard}>
-              <h3>Step Checklist</h3>
-              <div className={styles.judgeChecklist}>
-                {judgeChecklist.map((item) => (
-                  <div key={item.key} className={styles.judgeChecklistRow}>
-                    <span>{item.label}</span>
-                    <span className={item.passed ? styles.judgePass : styles.judgeFail}>
-                      {item.passed ? "Pass" : "Fail"}
-                    </span>
-                  </div>
-                ))}
+          <div className={styles.checklistItems}>
+            {judgeChecklist.map((item) => (
+              <div key={item.key} className={styles.checklistItem}>
+                <span className={item.passed ? styles.checkPassed : styles.checkFailed}>
+                  {item.passed ? "✓" : "○"}
+                </span>
+                <span>{item.label}</span>
               </div>
-            </div>
-
-            <div className={styles.judgeCard}>
-              <h3>Reproducible Judge Flow</h3>
-              <ol className={styles.judgeFlowList}>
-                <li>Connect wallet.</li>
-                <li>Auto-check network; if wrong, click "Switch to Status Sepolia".</li>
-                <li>Enter NL demand text.</li>
-                <li>Submit createDemand tx.</li>
-                <li>Open explorer proof link from lifecycle or transactions panel.</li>
-                <li>Confirm checklist reaches pass state.</li>
-              </ol>
-            </div>
-
-            <div className={styles.judgeCard}>
-              <h3>Current Chain</h3>
-              <div className={styles.judgeMetaList}>
-                <div>
-                  <span className={styles.label}>Chain name:</span>
-                  <span>{chainName}</span>
-                </div>
-                <div>
-                  <span className={styles.label}>Chain id:</span>
-                  <span>{chainId ?? "-"}</span>
-                </div>
-                <div>
-                  <span className={styles.label}>Network status:</span>
-                  <span className={isCorrectNetwork ? styles.judgePass : styles.judgeFail}>
-                    {isCorrectNetwork ? "Correct" : "Wrong"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.judgeCard}>
-              <h3>Contract Addresses</h3>
-              <div className={styles.judgeMetaList}>
-                <div>
-                  <span className={styles.label}>Escrow:</span>
-                  <span>{escrowAddressStatus || "Missing"}</span>
-                  {escrowAddressExplorerUrl && (
-                    <a
-                      href={escrowAddressExplorerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={markProofLinkOpened}
-                    >
-                      explorer
-                    </a>
-                  )}
-                </div>
-                <div>
-                  <span className={styles.label}>Arbiter:</span>
-                  <span>{arbiterAddressStatus || "Missing"}</span>
-                  {arbiterAddressExplorerUrl && (
-                    <a
-                      href={arbiterAddressExplorerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={markProofLinkOpened}
-                    >
-                      explorer
-                    </a>
-                  )}
-                </div>
-                <div>
-                  <span className={styles.label}>GMX manager:</span>
-                  <span>{gmxAddressArbitrum || "Missing"}</span>
-                  {gmxManagerExplorerUrl && (
-                    <a
-                      href={gmxManagerExplorerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={markProofLinkOpened}
-                    >
-                      explorer
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.judgeCard}>
-              <h3>Latest Transactions (Compact Action Log)</h3>
-              {latestTransactions.length === 0 ? (
-                <p className={styles.empty}>No transactions yet</p>
-              ) : (
-                <div className={styles.judgeTxTable}>
-                  {latestTransactions.map((record) => {
-                    const judgeStatus = toJudgeStatus(record.status);
-
-                    return (
-                      <div key={`judge-${record.id}`} className={styles.judgeTxRow}>
-                        <span>{record.step}</span>
-                        <span>{shortHash(record.txHash)}</span>
-                        <span
-                          className={
-                            judgeStatus === "success"
-                              ? styles.judgePass
-                              : judgeStatus === "failed"
-                                ? styles.judgeFail
-                                : styles.judgePending
-                          }
-                        >
-                          {judgeStatus}
-                        </span>
-                        <span>
-                          {record.explorerUrl ? (
-                            <a
-                              href={record.explorerUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={markProofLinkOpened}
-                            >
-                              explorer
-                            </a>
-                          ) : (
-                            "-"
-                          )}
-                        </span>
-                        <span>{record.blockNumber ?? "-"}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            ))}
           </div>
 
-          <div className={styles.judgeSummary}>
-            <h3>Pass or Fail Summary</h3>
-            <p className={judgePassed ? styles.judgeSummaryPass : styles.judgeSummaryFail}>
-              {judgePassed
-                ? "PASS: Minimum judge demo flow completed with visible proof links."
-                : "FAIL: Required judge demo steps are still incomplete."}
-            </p>
-
-            <div className={styles.validationChecklist}>
-              <h4>Validation Checklist</h4>
-              {validationChecks.map((item) => (
-                <div key={item.key} className={styles.validationRow}>
-                  <span>{item.label}</span>
-                  <span className={item.passed ? styles.judgePass : styles.judgeFail}>
-                    {item.passed ? "Pass" : "Fail"}
-                  </span>
-                </div>
-              ))}
-            </div>
+          <div className={`${styles.summary} ${judgePassed ? styles.summaryPass : ""}`}>
+            {judgePassed
+              ? "✓ ALL CHECKS PASSED: Proof links opened and verified."
+              : "○ INCOMPLETE: Complete all verification steps above."}
           </div>
-        </section>
-
-        {/* Active Demands Section */}
-        <section className={styles.section}>
-          <h2>Active Demands</h2>
-          {demands.length === 0 ? (
-            <p className={styles.empty}>No demands created yet</p>
-          ) : (
-            <div className={styles.demandsList}>
-              {demands.map((demand) => (
-                <div key={demand.id} className={styles.demandCard}>
-                  <div className={styles.demandHeader}>
-                    <h3>{demand.asset}</h3>
-                    <span className={styles.status}>
-                      {demand.settled ? "✓ Settled" : "⏳ Active"}
-                    </span>
-                  </div>
-                  <p className={styles.description}>
-                    {demand.nlDescription}
-                  </p>
-                  <div className={styles.demandDetails}>
-                    <div>
-                      <span className={styles.label}>Type:</span>
-                      <span>{demand.tradeType}</span>
-                    </div>
-                    <div>
-                      <span className={styles.label}>Collateral:</span>
-                      <span>{demand.collateralAmount} ETH</span>
-                    </div>
-                    <div>
-                      <span className={styles.label}>Price Threshold:</span>
-                      <span>${demand.priceThreshold}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Agent Status Section */}
-        <section className={styles.section}>
-          <h2>Agent Status</h2>
-          <div className={styles.statusBox}>
-            <div className={styles.statusItem}>
-              <span>Agent ID:</span>
-              <span className={styles.value}>1 (ERC-8004)</span>
-            </div>
-            <div className={styles.statusItem}>
-              <span>Credit Score:</span>
-              <span className={styles.value}>500/1000</span>
-            </div>
-            <div className={styles.statusItem}>
-              <span>Successful Trades:</span>
-              <span className={styles.value}>0</span>
-            </div>
-            <div className={styles.statusItem}>
-              <span>Network:</span>
-              <span className={styles.value}>Status Sepolia (Gasless)</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Network Information */}
-        <section className={styles.section}>
-          <h2>Network Info</h2>
-          <div className={styles.networkInfo}>
-            <div className={styles.chain}>
-              <h3>Status Network Sepolia</h3>
-              <p>🟢 Gasless Escrow</p>
-              <code>https://public.sepolia.rpc.status.network</code>
-            </div>
-            <div className={styles.chain}>
-              <h3>Arbitrum Sepolia</h3>
-              <p>📈 Live GMX Trading</p>
-              <code>https://sepolia-rollup.arbitrum.io/rpc</code>
-            </div>
-          </div>
-        </section>
+        </div>
       </main>
 
       <footer className={styles.footer}>
