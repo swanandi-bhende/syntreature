@@ -21,7 +21,7 @@ type PositionSnapshot = {
   collateralToken: string | null;
   collateralAmount: string | null;
   isLong: boolean | null;
-  sizeDelta: string | null;
+  sizeDeltaUsd: string | null;
   openPrice: string | null;
   closePrice: string | null;
   realizedPnl: string | null;
@@ -60,6 +60,12 @@ function getExplorerBase(chainId: bigint): string {
   if (chainId === 42161n) return "https://arbiscan.io";
   if (chainId === 421614n) return "https://sepolia.arbiscan.io";
   return "";
+}
+
+function getNetworkLabel(chainId: bigint, fallbackName: string): string {
+  if (chainId === 42161n) return "Arbitrum One";
+  if (chainId === 421614n) return "Arbitrum Sepolia";
+  return fallbackName;
 }
 
 function getScriptVersion(): string {
@@ -124,6 +130,7 @@ async function main() {
   const network = await ethers.provider.getNetwork();
   const chainId = network.chainId;
   const networkName = network.name;
+  const networkLabel = getNetworkLabel(chainId, networkName);
   const explorerBase = getExplorerBase(chainId);
 
   console.log("Deployer:", deployer.address);
@@ -141,6 +148,9 @@ async function main() {
   let marketAddr = ethers.ZeroAddress;
   let collateralTokenAddr = ethers.ZeroAddress;
   let priceFeedAddr = ethers.ZeroAddress;
+  const erc8004RegistryOrAdapterAddr =
+    (process.env.ERC8004_REGISTRY_OR_ADAPTER_ADDRESS ?? process.env.CREDIT_REGISTRY_ADAPTER_ADDRESS ?? "").trim() ||
+    ethers.ZeroAddress;
 
   if (mode === "live-gmx") {
     positionRouterAddr = (process.env.GMX_POSITION_ROUTER_ADDRESS ?? "").trim();
@@ -199,7 +209,7 @@ async function main() {
     collateralToken: collateralTokenAddr,
     collateralAmount: null,
     isLong: null,
-    sizeDelta: null,
+    sizeDeltaUsd: null,
     openPrice: null,
     closePrice: null,
     realizedPnl: null,
@@ -284,7 +294,7 @@ async function main() {
       collateralToken: openPosition.collateralToken,
       collateralAmount: openPosition.collateralAmount.toString(),
       isLong: openPosition.isLong,
-      sizeDelta: openPosition.sizeDeltaUsd.toString(),
+      sizeDeltaUsd: openPosition.sizeDeltaUsd.toString(),
       openPrice: openPrice ?? openPosition.openPrice.toString(),
       closePrice,
       realizedPnl: closedPosition.pnl.toString(),
@@ -295,6 +305,13 @@ async function main() {
 
   const openEvidence = await buildTxEvidence(openTxHash);
   const closeEvidence = await buildTxEvidence(closeTxHash);
+  const positionKey = positionSnapshot.key;
+  const scoreUpdateTxHash = (process.env.SCORE_UPDATE_TX_HASH ?? "").trim() || closeEvidence.txHash;
+  const scoreUpdateBlockNumber =
+    Number(process.env.SCORE_UPDATE_BLOCK_NUMBER ?? "") || closeEvidence.blockNumber || 0;
+  const scoreBefore = Number(process.env.CREDIT_SCORE_BEFORE ?? "") || 0;
+  const scoreAfter = Number(process.env.CREDIT_SCORE_AFTER ?? "") || 0;
+  const configuredAgentId = Number(process.env.CREDIT_AGENT_ID ?? "") || 1;
   const generatedAt = new Date().toISOString();
   const scriptVersion = getScriptVersion();
   const evidenceComplete = Boolean(
@@ -306,17 +323,18 @@ async function main() {
   );
 
   const artifact = {
-    mode,
-    network: networkName,
+    proofType: "bond-credit-live-gmx",
+    network: networkLabel,
     chainId: Number(chainId),
-    deployer: deployer.address,
+    mode,
     generatedAt,
+    deployer: deployer.address,
     scriptVersion,
     proofManifest: {
       proofType: "bond-credit-live-gmx",
       generatedAt,
       scriptVersion,
-      network: networkName,
+      network: networkLabel,
       chainId: Number(chainId),
       evidenceComplete,
     },
@@ -329,6 +347,7 @@ async function main() {
       GMXPositionManager: gmxManagerAddr,
       GMXPositionRouter: positionRouterAddr,
       GMXExchangeRouter: exchangeRouterAddr,
+      ERC8004RegistryOrAdapter: erc8004RegistryOrAdapterAddr,
       Market: marketAddr,
       CollateralToken: collateralTokenAddr,
       PriceFeed: priceFeedAddr,
@@ -338,9 +357,20 @@ async function main() {
       closePosition: closeEvidence,
       position: positionSnapshot,
     },
+    creditScoreEvidence: {
+      agentId: configuredAgentId,
+      scoreUpdateTxHash,
+      scoreUpdateBlockNumber,
+      scoreBefore,
+      scoreAfter,
+      updateReason: `trade_result_position_key_${positionKey ?? "unknown"}`,
+      linkagePositionKey: positionKey,
+      closeTxHash: closeEvidence.txHash,
+    },
     explorerLinks: {
       openTx: openEvidence.txHash && explorerBase ? `${explorerBase}/tx/${openEvidence.txHash}` : null,
       closeTx: closeEvidence.txHash && explorerBase ? `${explorerBase}/tx/${closeEvidence.txHash}` : null,
+      scoreUpdateTx: scoreUpdateTxHash && explorerBase ? `${explorerBase}/tx/${scoreUpdateTxHash}` : null,
       contracts: {
         GMXPositionManager: explorerBase ? `${explorerBase}/address/${gmxManagerAddr}` : null,
         GMXPositionRouter: isNonZeroAddress(positionRouterAddr)
@@ -349,8 +379,21 @@ async function main() {
         GMXExchangeRouter: isNonZeroAddress(exchangeRouterAddr)
           ? `${explorerBase}/address/${exchangeRouterAddr}`
           : null,
+        ERC8004RegistryOrAdapter: isNonZeroAddress(erc8004RegistryOrAdapterAddr)
+          ? `${explorerBase}/address/${erc8004RegistryOrAdapterAddr}`
+          : null,
       },
     },
+    notes:
+      mode === "live-gmx"
+        ? [
+            "Live GMX perp flow executed during Synthesis window",
+            "No simulated-only execution used for this proof artifact",
+          ]
+        : [
+            "Non-qualifying wrapper/testnet run",
+            "Use arbitrum-deployment.live.json for judge-facing proof pack",
+          ],
   };
 
   const deploymentsDir = path.join(process.cwd(), "deployments");

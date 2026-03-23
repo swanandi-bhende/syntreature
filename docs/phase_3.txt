@@ -138,6 +138,10 @@ If score update is performed in a different contract:
 
 Include both tx hashes.
 Add linkage key (positionKey) in both events/artifacts.
+
+
+
+
 4) Rewrite proof section in README.md to remove ambiguity
 
 Add dedicated section: “bond.credit Live Proof Pack”.
