@@ -80,6 +80,24 @@ function toUserFacingError(error: unknown) {
   return reasonText;
 }
 
+function isUserRejectedError(error: unknown) {
+  const normalized = error as {
+    code?: number;
+    message?: string;
+    reason?: string;
+    info?: { error?: { code?: number; message?: string } };
+  };
+
+  const reasonText =
+    normalized.reason ||
+    normalized.message ||
+    normalized.info?.error?.message ||
+    "";
+  const code = normalized.code ?? normalized.info?.error?.code;
+
+  return code === 4001 || /user denied|user rejected/i.test(reasonText);
+}
+
 function shortHash(hash: string) {
   if (!hash || hash.length < 12) return hash;
   return `${hash.slice(0, 8)}...${hash.slice(-6)}`;
@@ -261,12 +279,14 @@ export default function Home() {
 
   const syncWalletState = async (
     browserProvider: ethers.BrowserProvider,
-    options?: { allowAutoConnect?: boolean }
+    options?: { allowAutoConnect?: boolean; knownAccounts?: string[] }
   ) => {
     const allowAutoConnect = options?.allowAutoConnect ?? false;
 
     try {
-      const accounts = (await browserProvider.send("eth_accounts", [])) as string[];
+      const accounts = options?.knownAccounts
+        ? options.knownAccounts
+        : ((await browserProvider.send("eth_accounts", [])) as string[]);
       const network = await browserProvider.getNetwork();
       const nextChainId = Number(network.chainId);
       const networkConfig = getNetworkConfig(nextChainId);
@@ -295,6 +315,11 @@ export default function Home() {
       setWalletAddress(address);
       setIsConnected(true);
     } catch (error) {
+      if (isUserRejectedError(error)) {
+        setConnectError("");
+        applyDisconnectedState();
+        return;
+      }
       setConnectError(error instanceof Error ? error.message : "Failed to sync wallet state.");
     }
   };
@@ -304,13 +329,21 @@ export default function Home() {
 
     try {
       const browserProvider = getProvider();
-      await browserProvider.send("eth_requestAccounts", []);
+      const requestedAccounts = (await browserProvider.send("eth_requestAccounts", [])) as string[];
       setHasApprovedConnection(true);
       if (typeof window !== "undefined") {
         window.sessionStorage.setItem("syntreature.wallet.approved", "true");
       }
-      await syncWalletState(browserProvider, { allowAutoConnect: true });
+      await syncWalletState(browserProvider, {
+        allowAutoConnect: true,
+        knownAccounts: requestedAccounts,
+      });
     } catch (error) {
+      if (isUserRejectedError(error)) {
+        setConnectError("Wallet connection request was rejected.");
+        applyDisconnectedState();
+        return;
+      }
       setConnectError(error instanceof Error ? error.message : "Wallet connection failed.");
     }
   };
@@ -362,6 +395,11 @@ export default function Home() {
           );
           return;
         }
+      }
+
+      if (isUserRejectedError(error)) {
+        setConnectError("Network switch request was rejected.");
+        return;
       }
 
       setConnectError(error instanceof Error ? error.message : "Network switch failed.");
