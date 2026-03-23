@@ -559,8 +559,8 @@ export default function Home() {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h1>🦖 Syntreature</h1>
-        <p>Gasless NL Trading Escrow Agent</p>
+        <h1>Syntreature Control Console</h1>
+        <p>Verifiable Agent Commerce on Status and Arbitrum</p>
       </header>
 
       <main className={styles.main}>
