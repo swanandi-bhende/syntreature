@@ -82,6 +82,41 @@
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
+.buttonSecondary {
+  background: #1f7a63;
+  color: #fff;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 15px;
+  transition: all 0.3s;
+}
+
+.buttonSecondary:hover {
+  transform: translateY(-2px);
+  background: #18604e;
+}
+
+.buttonGhost {
+  background: transparent;
+  color: #667eea;
+  border: 2px solid #667eea;
+  padding: 10px 28px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 15px;
+  transition: all 0.3s;
+}
+
+.buttonGhost:hover {
+  background: #eef2ff;
+}
+
 .button:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
@@ -90,6 +125,78 @@
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.walletActionsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.statusChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.chipPass {
+  background: #e8f8ef;
+  color: #166246;
+  border-color: #76d4ad;
+}
+
+.chipWarn {
+  background: #fff5df;
+  color: #815c05;
+  border-color: #f0cf7b;
+}
+
+.chipFail {
+  background: #ffe9e9;
+  color: #7a1f1f;
+  border-color: #f5aaaa;
+}
+
+.walletMeta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  background: #f7f9ff;
+  border: 1px solid #d8e2ff;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.walletMeta > div {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.walletMeta span:last-child {
+  overflow-wrap: anywhere;
+}
+
+.connectError {
+  margin: 8px 0 14px;
+  color: #8a1f2c;
+  background: #ffe6ea;
+  border: 1px solid #f2bcc6;
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 .empty {
@@ -269,5 +376,9 @@
 
   .statusBox {
     grid-template-columns: 1fr;
+  }
+
+  .walletActionsRow {
+    flex-direction: column;
   }
 }

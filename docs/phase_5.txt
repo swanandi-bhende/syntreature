@@ -67,6 +67,8 @@ Important caveat:
 Your contract currently uses onlyAgent checks. If judge wallet is not the agent, writes will revert. Add a clear pre-check:
 
 compare connected wallet to configured agent address and disable write action with explanation if mismatch.
+
+
 4. Centralize contracts + explorer metadata in contracts.ts
 
 Add helper creators:
@@ -143,6 +145,8 @@ Show tx hash immediately after submission, not only after confirmation.
 Keep a compact action log panel so judges can screenshot proof
 quickly.
 Make mobile-safe layout for judge recording on laptop/tablet.
+
+
 8. One full reproducible judge flow to support in UI
 
 Connect wallet.
