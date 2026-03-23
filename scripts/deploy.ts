@@ -193,6 +193,10 @@ async function main() {
   const escrowAddr = await escrow.getAddress();
   console.log("✅ NLTradingEscrow deployed:", escrowAddr);
 
+  const trustEscrowTx = await arbiter.setTrustedEscrow(escrowAddr, true);
+  await trustEscrowTx.wait();
+  console.log("✅ Arbiter trusted escrow configured:", escrowAddr);
+
   // Step 4: Prepare protocol lifecycle transactions
   console.log("\n5️⃣ Preparing gasless transactions on Status Network...");
 

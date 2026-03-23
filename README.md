@@ -123,18 +123,19 @@ This table is the single source of truth for deployed addresses.
 | Arbitrum Sepolia | GMXExchangeRouter (mock) | `0x0000000000000000000000000000000000000000` | [view](https://sepolia.arbiscan.io/address/0x0000000000000000000000000000000000000000) |
 | Arbitrum Sepolia | PriceFeed | `0xF636e550262eBB3F46B7b974Ec13f88E072996Cd` | [view](https://sepolia.arbiscan.io/address/0xF636e550262eBB3F46B7b974Ec13f88E072996Cd) |
 
-### Status Sepolia Proofs (2026-03-22)
+### Status Sepolia Proofs (2026-03-23)
 
 Deployment artifact:
 - [deployments/status-sepolia-deployment.json](deployments/status-sepolia-deployment.json)
 
 Required gasless transaction proofs:
-- createDemand: [0xd137cb7ad7cdb24b2747a866e55f59678f85c6b030813f36cb41c4745ba2b061](https://sepoliascan.status.network/tx/0xd137cb7ad7cdb24b2747a866e55f59678f85c6b030813f36cb41c4745ba2b061)
-- lockFunds: [0x64d0151659502ebd07c58116d61b35fbd28b487c3a31b480d7ddcb005b62803c](https://sepoliascan.status.network/tx/0x64d0151659502ebd07c58116d61b35fbd28b487c3a31b480d7ddcb005b62803c)
-- requestArbitration: [0x5bc6cc5b5270c8260d56ca60c04971086734ac590f7f51ccc67975d3ff7a8696](https://sepoliascan.status.network/tx/0x5bc6cc5b5270c8260d56ca60c04971086734ac590f7f51ccc67975d3ff7a8696)
+- createDemand: [0xb92f5bfe53e8336f928ad4683448b285b8a2847b06fb3e4654bae8c05c784251](https://sepoliascan.status.network/tx/0xb92f5bfe53e8336f928ad4683448b285b8a2847b06fb3e4654bae8c05c784251)
+- lockFunds: [0xb9633fd48f2419d322bf0656e1c2df9c22c4b374be2f5697a3048420789c7be6](https://sepoliascan.status.network/tx/0xb9633fd48f2419d322bf0656e1c2df9c22c4b374be2f5697a3048420789c7be6)
+- requestArbitration: [0xd367a0087f78fd744398c9be322909b2971b2bb976208b2ff658f211c70ff054](https://sepoliascan.status.network/tx/0xd367a0087f78fd744398c9be322909b2971b2bb976208b2ff658f211c70ff054)
+- settlementCompletion (clawbackFunds): [0xa95c54f36ac3be747bac6ba9bc39b9c86535b7507fccff597c25a6ad1b5fa9a5](https://sepoliascan.status.network/tx/0xa95c54f36ac3be747bac6ba9bc39b9c86535b7507fccff597c25a6ad1b5fa9a5)
 
 Verification summary:
-- All 3 transaction pages resolve on Status Sepolia explorer.
+- All 4 transaction pages resolve on Status Sepolia explorer.
 - Each transaction is marked Success and shows gas price 0 Gwei on explorer.
 
 ### bond.credit Live Proof Pack

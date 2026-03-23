@@ -3,23 +3,23 @@
   "chainId": 1660990954,
   "rpc": "https://public.sepolia.rpc.status.network",
   "deployer": "0x1ddD3B4B0CAa2fD0A436B976aac8a7DFb719E4d4",
-  "timestamp": "2026-03-22T18:01:13.017Z",
+  "timestamp": "2026-03-23T05:36:30.939Z",
   "integrationMode": "mock",
   "qualifyingForPartnerTracks": false,
   "nonQualifyingReason": "Mock fallback mode only. Do not use this artifact for partner-track qualification.",
   "protocolAddressesUsed": {
-    "alkahest": "0xad4672Bd1a837E44B6bb4d3BDAee01Aa0404137F",
-    "naturalLanguageAgreements": "0x238319914BeFD38d9dcAE2aD5354419C0a110F4E",
-    "erc8004": "0xF6b6BA05d3B1AA261a63A12D745826C544538973"
+    "alkahest": "0xe9ff8a2B645622A5f84C531f0bEbE9aB371068Cb",
+    "naturalLanguageAgreements": "0x6810e15ef33637c2D4cB2A5D793E789be0767418",
+    "erc8004": "0xbCdBE63b51ed57e0EcA0Af5C3022cCB8A17d3760"
   },
   "contracts": {
-    "NLTradingEscrow": "0x6a621ff1eA17f86C4bA97508DDe856e37A3De82b",
-    "AIEvaluatedArbiter": "0x6a5ce3EE45fc5C95885E006c81E911bE7558887F",
-    "CollateralToken": "0x8EC838859c7D22124c23A7AE97a38978C2a8bc12",
-    "MockPriceFeed": "0xf7CD0F19AFAb4FB181636F7cD45d73F3Eb111df8",
-    "MockAlkahest": "0xad4672Bd1a837E44B6bb4d3BDAee01Aa0404137F",
-    "MockERC8004": "0xF6b6BA05d3B1AA261a63A12D745826C544538973",
-    "MockNLAgreements": "0x238319914BeFD38d9dcAE2aD5354419C0a110F4E"
+    "NLTradingEscrow": "0x70F2D4B2F1383Da07FBbe68Fdd0E58abfb3c0ceB",
+    "AIEvaluatedArbiter": "0x47dF773Ca1c9f75f72c14574c9aCA4f1Fe49db6f",
+    "CollateralToken": "0xde8D2BAe94446aFf18a2be253fb85F0211DB904C",
+    "MockPriceFeed": "0xFe7c8b79B1797e323C0e54390A02DaEb73020c0a",
+    "MockAlkahest": "0xe9ff8a2B645622A5f84C531f0bEbE9aB371068Cb",
+    "MockERC8004": "0xbCdBE63b51ed57e0EcA0Af5C3022cCB8A17d3760",
+    "MockNLAgreements": "0x6810e15ef33637c2D4cB2A5D793E789be0767418"
   },
   "protocolDemandEvidence": {
     "demandId": 0,
@@ -29,25 +29,25 @@
       "conditionHash": "0xbd6f96344325ad5d0a8faac10993ff8b5f67d2bf10bad1cc34770eec0ec6ac40",
       "obligationId": "1",
       "lifecycleStatus": 5,
-      "lastProtocolActionAt": 1774202472
+      "lastProtocolActionAt": 1774244190
     }
   },
   "transactions": {
-    "tokenApproval": "0xca22a4f7208b6f8bd66d5a39d84a8c810c43679bc3628f05c36bbc3bbe28f156",
-    "createDemand": "0x1fc4d4674dd04f39f2bd76566634857ad175ab9c281eb670ad53f30a9a0fe144",
-    "lockFunds": "0x3378cf8bbdeb93031f95c63547e5f830eea31582e34878a21268235990e1b8e4",
-    "recordTradeExecution": "0x0cf94d76a5ce9b5d14a75660ed9dabd742c09ecb2c49fefc39d5a44421e54508",
-    "requestArbitration": "0x5426112c085b0b0baca27397e1897ddd6323c3dc5d42266e4d68aa33869c7fe3",
+    "tokenApproval": "0x1438011b13ef2749cbf082e8636390bcc7f9fad0789499e4e1e7021d73190f3b",
+    "createDemand": "0xb92f5bfe53e8336f928ad4683448b285b8a2847b06fb3e4654bae8c05c784251",
+    "lockFunds": "0xb9633fd48f2419d322bf0656e1c2df9c22c4b374be2f5697a3048420789c7be6",
+    "recordTradeExecution": "0x77954315fc5081f499167f084a07b7e0b2578dc2f0de9342705e4ab0432ad830",
+    "requestArbitration": "0xd367a0087f78fd744398c9be322909b2971b2bb976208b2ff658f211c70ff054",
     "settlement": {
       "action": "clawback",
-      "hash": "0xac6d3907bd9b7d3b075084336338980ee6fba3e417c7620eee4711c55e8e4435"
+      "hash": "0xa95c54f36ac3be747bac6ba9bc39b9c86535b7507fccff597c25a6ad1b5fa9a5"
     }
   },
   "gasUsed": {
     "createDemand": "883208",
     "lockFunds": "159000",
     "recordTradeExecution": "182412",
-    "requestArbitration": "286707",
+    "requestArbitration": "342020",
     "settlement": "181732"
   },
   "notes": [
