@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import styles from "../styles/Home.module.css";
-import { NETWORKS, getNetworkConfig, NL_TRADING_ESCROW_ABI } from "../lib/contracts";
+import {
+  NETWORKS,
+  getNetworkConfig,
+  getProvider,
+  getSigner,
+  getEscrowContract,
+  toExplorerTxUrl,
+  isExpectedAgent,
+  isSupportedChain,
+  getMissingContractEnvKeys,
+} from "../lib/contracts";
 
 interface Demand {
   id: string;
@@ -67,18 +77,6 @@ function shortHash(hash: string) {
   return `${hash.slice(0, 8)}...${hash.slice(-6)}`;
 }
 
-type EthereumProvider = {
-  request: (args: { method: string; params?: unknown[] | object }) => Promise<unknown>;
-  on: (event: string, listener: (...args: unknown[]) => void) => void;
-  removeListener: (event: string, listener: (...args: unknown[]) => void) => void;
-};
-
-declare global {
-  interface Window {
-    ethereum?: EthereumProvider;
-  }
-}
-
 export default function Home() {
   const [demands, setDemands] = useState<Demand[]>([]);
   const [nlInput, setNlInput] = useState("");
@@ -100,19 +98,24 @@ export default function Home() {
 
   const statusSepoliaChainId = NETWORKS.statusSepolia.chainId;
   const arbitrumSepoliaChainId = NETWORKS.arbitrumSepolia.chainId;
-  const expectedAgentAddress = (process.env.NEXT_PUBLIC_AGENT_ADDRESS || "").toLowerCase();
-  const escrowAddressStatus = process.env.NEXT_PUBLIC_ESCROW_ADDRESS_STATUS || "";
-  const arbiterAddressStatus = process.env.NEXT_PUBLIC_ARBITER_ADDRESS_STATUS || "";
   const collateralTokenStatus = process.env.NEXT_PUBLIC_COLLATERAL_TOKEN_STATUS || "";
   const gmxAddressArbitrum = process.env.NEXT_PUBLIC_GMX_ADDRESS_ARBITRUM || "";
   const isCorrectNetwork = chainId === statusSepoliaChainId;
-  const isAuthorizedAgent =
-    !!walletAddress && !!expectedAgentAddress && walletAddress.toLowerCase() === expectedAgentAddress;
+  const isAuthorizedAgent = (() => {
+    if (!walletAddress) return false;
+    try {
+      return isExpectedAgent(walletAddress);
+    } catch {
+      return false;
+    }
+  })();
 
-  const missingContractConfigs: string[] = [];
-  if (!escrowAddressStatus) missingContractConfigs.push("NEXT_PUBLIC_ESCROW_ADDRESS_STATUS");
-  if (!arbiterAddressStatus) missingContractConfigs.push("NEXT_PUBLIC_ARBITER_ADDRESS_STATUS");
-  if (!collateralTokenStatus) missingContractConfigs.push("NEXT_PUBLIC_COLLATERAL_TOKEN_STATUS");
+  const missingContractConfigs = getMissingContractEnvKeys([
+    "escrowStatus",
+    "arbiterStatus",
+    "collateralStatus",
+    "agent",
+  ]);
 
   const canAttemptWrite =
     isConnected &&
@@ -163,7 +166,7 @@ export default function Home() {
         return;
       }
 
-      const nextSigner = await browserProvider.getSigner();
+      const nextSigner = await getSigner(browserProvider);
       const address = await nextSigner.getAddress();
 
       setProvider(browserProvider);
@@ -177,13 +180,9 @@ export default function Home() {
 
   const connectWallet = async () => {
     setConnectError("");
-    if (!window.ethereum) {
-      setConnectError("No browser wallet found. Install MetaMask or a compatible wallet.");
-      return;
-    }
 
     try {
-      const browserProvider = new ethers.BrowserProvider(window.ethereum);
+      const browserProvider = getProvider();
       await browserProvider.send("eth_requestAccounts", []);
       await syncWalletState(browserProvider);
     } catch (error) {
@@ -205,7 +204,7 @@ export default function Home() {
         method: "wallet_switchEthereumChain",
         params: [{ chainId: chainHex }],
       });
-      const browserProvider = provider || new ethers.BrowserProvider(window.ethereum);
+      const browserProvider = provider || getProvider();
       await syncWalletState(browserProvider);
     } catch (error) {
       const addChainCode = 4902;
@@ -229,7 +228,7 @@ export default function Home() {
               },
             ],
           });
-          const browserProvider = provider || new ethers.BrowserProvider(window.ethereum);
+          const browserProvider = provider || getProvider();
           await syncWalletState(browserProvider);
           return;
         } catch (addError) {
@@ -258,7 +257,7 @@ export default function Home() {
   useEffect(() => {
     if (!window.ethereum) return;
 
-    const browserProvider = new ethers.BrowserProvider(window.ethereum);
+    const browserProvider = getProvider();
     void syncWalletState(browserProvider);
 
     const handleAccountsChanged = (accountsValue: unknown) => {
@@ -314,11 +313,7 @@ export default function Home() {
 
     setIsLoading(true);
     try {
-      const escrowContract = new ethers.Contract(
-        escrowAddressStatus,
-        NL_TRADING_ESCROW_ABI,
-        signer
-      );
+      const escrowContract = getEscrowContract(signer);
 
       const tx = await escrowContract.createDemand(
         nlInput,
@@ -331,7 +326,7 @@ export default function Home() {
         BigInt(releaseTime)
       );
 
-      const explorerUrl = `${NETWORKS.statusSepolia.explorer}/tx/${tx.hash}`;
+      const explorerUrl = toExplorerTxUrl(statusSepoliaChainId, tx.hash);
       setCreateDemandStatus("submitted");
       setLatestTxHash(tx.hash);
       setLatestExplorerUrl(explorerUrl);
@@ -483,6 +478,10 @@ export default function Home() {
             <div>
               <span className={styles.label}>Chain:</span>
               <span>{chainName}</span>
+            </div>
+            <div>
+              <span className={styles.label}>Supported chain:</span>
+              <span>{isSupportedChain(chainId) ? "Yes" : "No"}</span>
             </div>
             <div>
               <span className={styles.label}>Signer Ready:</span>
